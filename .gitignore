@@ -1,0 +1,19 @@
+# Prywatne dane lokalizacji — nigdy nie trafiają do repozytorium
+_verify.json
+*timeline*.json
+!sample-timeline.json
+Oś czasu.json
+Records.json
+location-history.json
+
+# Nagrania i materiały pomocnicze
+_rec.mp4
+*.mp4
+
+# Lokalne ustawienia Claude Code — zawierają ścieżki z tego komputera
+.claude/settings.local.json
+
+# Śmieci systemowe
+Thumbs.db
+desktop.ini
+.DS_Store

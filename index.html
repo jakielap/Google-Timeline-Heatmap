@@ -1,0 +1,2074 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Google Timeline Heatmap</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+<style>
+  :root { --bg:#0d0f13; --panel:#171a21; --panel2:#1f232c; --txt:#e7ebf0; --muted:#98a2b3; --accent:#ff7a1a; }
+  * { box-sizing: border-box; }
+  html,body { margin:0; height:100%; background:var(--bg); color:var(--txt);
+              overscroll-behavior:none;   /* przeciąganie mapy nie ma odświeżać strony na telefonie */
+              font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; }
+  #map { position:absolute; inset:0; background:var(--bg); }
+  a { color:var(--accent); }
+
+  #panel {
+    position:absolute; top:12px; left:12px; z-index:1000; width:312px; max-width:calc(100vw - 24px);
+    background:rgba(23,26,33,.94); backdrop-filter:blur(8px); border:1px solid #2a2f3a;
+    border-radius:14px; padding:14px 14px 12px; box-shadow:0 10px 30px rgba(0,0,0,.5);
+    max-height:calc(100vh - 24px); overflow:auto;
+  }
+  #panel h1 { font-size:15px; margin:0 0 2px; letter-spacing:.2px; }
+  #panel .sub { font-size:11px; color:var(--muted); margin-bottom:12px; }
+
+  .drop {
+    border:1.5px dashed #3a4150; border-radius:10px; padding:16px 12px; text-align:center;
+    cursor:pointer; transition:.15s; background:var(--panel2); font-size:13px; color:var(--muted);
+  }
+  .drop:hover, .drop.over { border-color:var(--accent); color:var(--txt); background:#232833; }
+  .drop b { color:var(--txt); }
+  input[type=file]{ display:none; }
+
+  .section { font-size:11px; text-transform:uppercase; letter-spacing:.6px; color:#6b7482;
+             margin:16px 0 6px; display:flex; align-items:center; justify-content:space-between; }
+  .section .tgl { text-transform:none; letter-spacing:0; color:var(--muted); font-size:11px;
+                  display:flex; align-items:center; gap:5px; cursor:pointer; }
+
+  .row { display:flex; align-items:center; justify-content:space-between; gap:8px; margin:10px 0 4px; font-size:12px; }
+  .row label { color:var(--muted); }
+  .row .val { color:var(--txt); font-variant-numeric:tabular-nums; min-width:38px; text-align:right; }
+  input[type=range]{ width:100%; accent-color:var(--accent); }
+  input[type=color]{ width:34px; height:24px; border:none; background:none; padding:0; cursor:pointer; }
+  input[type=checkbox]{ accent-color:var(--accent); }
+
+  .btns { display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; }
+  button {
+    flex:1; min-width:84px; background:var(--panel2); color:var(--txt); border:1px solid #2f3542;
+    border-radius:9px; padding:8px 10px; font-size:12px; cursor:pointer; transition:.12s;
+  }
+  button:hover { border-color:var(--accent); }
+  button.primary { background:var(--accent); border-color:var(--accent); color:#1a0f04; font-weight:600; }
+  button.mini { flex:none; width:100%; margin-top:6px; padding:6px; font-size:11px; }
+
+  select {
+    width:100%; background:var(--panel2); color:var(--txt); border:1px solid #2f3542;
+    border-radius:9px; padding:7px 8px; font-size:12px; margin-top:4px;
+  }
+  .row select { width:auto; margin-top:0; }
+
+  /* Zakres dat */
+  .daterow { display:flex; align-items:center; justify-content:space-between; font-size:12px; margin:8px 0 2px; }
+  .daterow span { color:var(--muted); }
+  .dateInput {
+    color-scheme:dark;                    /* natywny kalendarz w ciemnym wariancie */
+    background:var(--panel2); color:var(--txt); border:1px solid #2f3542; border-radius:7px;
+    padding:3px 6px; font-size:12px; font-family:inherit; font-variant-numeric:tabular-nums;
+  }
+  .dateInput:hover { border-color:#3a4150; }
+  .dateInput:focus { outline:none; border-color:var(--accent); }
+
+  /* Środki transportu */
+  .modeRow { display:flex; align-items:center; gap:8px; padding:5px 0; font-size:12px; cursor:pointer; }
+  .modeRow .sw { width:11px; height:11px; border-radius:3px; flex:none; }
+  .modeRow .mName { flex:1; }
+  .modeRow .mKm { color:var(--muted); font-variant-numeric:tabular-nums; }
+  .modeRow input { margin:0; }
+  .modeRow.off { opacity:.4; }
+
+  /* Statystyki */
+  #stats { margin-top:14px; border-top:1px solid #262b35; padding-top:12px; }
+  .statBig { font-size:26px; font-weight:700; letter-spacing:.3px; font-variant-numeric:tabular-nums; }
+  .statBig small { display:block; font-size:10.5px; font-weight:400; color:var(--muted);
+                   letter-spacing:.4px; text-transform:uppercase; margin-top:1px; }
+  .statGrid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:12px 0 6px; }
+  .statGrid > div { background:var(--panel2); border:1px solid #262b35; border-radius:9px; padding:8px 10px; }
+  .statGrid b { font-size:16px; font-variant-numeric:tabular-nums; }
+  .statGrid span { display:block; font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.4px; }
+  .statGrid > div.clickable { cursor:pointer; transition:.12s; }
+  .statGrid > div.clickable:hover { border-color:#3a4150; background:#252b36; }
+  .statGrid > div.clickable.active { border-color:var(--accent); background:rgba(255,122,26,.14); }
+  .statGrid > div.clickable.active b { color:var(--accent); }
+  .statGrid > div.clickable.active span::before { content:'● '; color:var(--accent); font-size:9px; }
+  .metaLine { font-size:10.5px; color:#6b7482; line-height:1.6; margin-top:10px; }
+  .metaLine b { color:var(--muted); font-variant-numeric:tabular-nums; }
+  .spanStats { margin:4px 0 2px; }
+  .spanStat { display:flex; justify-content:space-between; align-items:baseline; gap:10px;
+              padding:7px 0; border-bottom:1px solid #20242d; font-size:11.5px; }
+  .spanStat span { color:var(--muted); }
+  .spanStat b { font-size:14px; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .spanStat.clickable { cursor:pointer; transition:.12s; }
+  .spanStat.clickable:hover { color:var(--txt); }
+  .spanStat.clickable:hover span { color:var(--txt); }
+  .spanStat.active b { color:var(--accent); }
+  .spanStat.active span::before { content:'● '; color:var(--accent); font-size:9px; vertical-align:middle; }
+  /* Przy kilkudziesięciu krajach lista wypchnęłaby wykresy poza zasięg wzroku */
+  #countryList { max-height:240px; overflow-y:auto; overscroll-behavior:contain; }
+  .measureHint { font-size:10px; color:#5b636f; margin-top:5px; }
+  .measure-tip { background:#11141a; color:#fff; border:1px solid #3a4150; border-radius:6px;
+                 font-size:11px; font-weight:600; padding:3px 7px; box-shadow:0 2px 8px rgba(0,0,0,.5); }
+  .measure-tip::before { display:none; }
+  .chart { width:100%; display:block; background:var(--panel2); border:1px solid #262b35;
+           border-radius:9px; margin-top:2px; }
+  #monthChart { cursor:pointer; }
+  .chartLbl { font-size:9.5px; color:#5b636f; margin-top:4px; line-height:1.4; }
+  .spdDot { display:inline-block; width:8px; height:8px; border-radius:2px; margin-right:6px; vertical-align:middle; }
+  .statGrid b[title] { cursor:help; }
+
+  /* Pasek najważniejszych statystyk (dół ekranu) */
+  #quickBar {
+    position:absolute; left:50%; bottom:14px; transform:translateX(-50%); z-index:1000;
+    display:flex; align-items:stretch; max-width:calc(100vw - 24px); overflow-x:auto;
+    background:rgba(23,26,33,.94); backdrop-filter:blur(8px); border:1px solid #2a2f3a;
+    border-radius:14px; box-shadow:0 10px 30px rgba(0,0,0,.5); padding:10px 6px;
+  }
+  #quickBar .qItem { display:flex; flex-direction:column; align-items:center; justify-content:center;
+                      padding:2px 18px; white-space:nowrap; }
+  #quickBar .qItem b { font-size:19px; font-weight:700; letter-spacing:.2px; font-variant-numeric:tabular-nums; }
+  #quickBar .qItem span { font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.4px; margin-top:2px; }
+  #quickBar .qSep { width:1px; background:#2a2f3a; margin:2px 0; flex:none; }
+  #quickBar .qItem.clickable { cursor:pointer; transition:.12s; border-radius:8px; }
+  #quickBar .qItem.clickable:hover { background:#20242e; }
+  #quickBar .qItem.clickable.active b { color:var(--accent); }
+  #quickBar .qItem.clickable.active { background:rgba(255,122,26,.12); }
+  /* Przełącznik panelu — tylko na wąskich ekranach, w prawym górnym rogu
+     (lewy górny zajmuje sterowanie zoomem Leafletu). */
+  #panelToggle {
+    display:none; position:absolute; top:12px; right:12px; z-index:1001;
+    width:auto; flex:none; min-width:0; padding:10px 14px; font-size:13px; font-weight:600;
+    background:rgba(23,26,33,.94); backdrop-filter:blur(8px); border:1px solid #2a2f3a;
+    border-radius:12px; box-shadow:0 6px 20px rgba(0,0,0,.5);
+  }
+
+  @media (max-width: 680px) {
+    #quickBar { left:10px; right:10px; bottom:calc(10px + env(safe-area-inset-bottom));
+                transform:none; justify-content:flex-start; scrollbar-width:none; }
+    #quickBar::-webkit-scrollbar { display:none; }
+    #quickBar .qItem { padding:2px 12px; }
+    #quickBar .qItem b { font-size:15px; }
+
+    #panelToggle { display:block; }
+    #panel { left:10px; right:10px; top:10px; width:auto; max-width:none; padding:12px 12px 10px; }
+    #panel h1, #panel .sub { padding-right:88px; }   /* miejsce na przycisk „Zamknij" nad panelem */
+    body.panelHidden #panel { display:none; }
+
+    /* palec to nie kursor — większe cele dotykowe */
+    input[type=range] { height:30px; }
+    .modeRow { padding:9px 0; font-size:13px; }
+    .dateInput { padding:7px 9px; font-size:14px; }
+    button { padding:11px 10px; font-size:13px; }
+    button.mini { padding:9px; font-size:12px; }
+    .spanStat { padding:10px 0; }
+    .drop { padding:22px 12px; }
+    .chart { touch-action:manipulation; }   /* bez opóźnienia 300 ms przy stuknięciu w słupek */
+  }
+
+  #busy {
+    position:absolute; inset:0; z-index:2000; display:none; place-items:center;
+    background:rgba(8,9,12,.72); backdrop-filter:blur(2px);
+  }
+  #busy .box { background:var(--panel); border:1px solid #2a2f3a; border-radius:12px;
+               padding:20px 26px; text-align:center; font-size:13px; }
+  .spin { width:26px; height:26px; border:3px solid #333; border-top-color:var(--accent);
+          border-radius:50%; margin:0 auto 12px; animation:spin .8s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  .leaflet-container { background:var(--bg); }
+  details summary { cursor:pointer; font-size:12px; color:var(--muted); margin-top:12px; }
+</style>
+</head>
+<body>
+<div id="map"></div>
+
+<button id="panelToggle" aria-expanded="true">Ustawienia</button>
+
+<div id="panel">
+  <h1>Timeline Heatmap</h1>
+  <div class="sub">Mapa Twoich tras w stylu Stravy — dane zostają w przeglądarce.</div>
+
+  <label class="drop" id="drop">
+    Przeciągnij tutaj lub <b>kliknij</b><br>
+    <span style="font-size:11px">plik(i) .json lub .zip z Google Takeout</span>
+    <input type="file" id="file" accept=".json,.zip" multiple />
+  </label>
+  <div class="metaLine" id="cacheNote"></div>
+
+  <div id="controls" style="display:none">
+    <div class="section">Wygląd śladu</div>
+    <div class="row"><label>Tryb</label>
+      <select id="styleMode">
+        <option value="heat">Heatmapa (świecenie)</option>
+        <option value="lines">Jednolite linie</option>
+      </select>
+    </div>
+    <div class="metaLine" id="styleHint">Nakładające się trasy rozjaśniają się — widać, którędy jeździsz najczęściej.</div>
+
+    <div class="row"><label>Kolor śladu</label>
+      <input type="color" id="color" value="#ff7a1a" /></div>
+
+    <div class="row"><label id="opLbl">Jasność linii</label><span class="val" id="opVal">0.14</span></div>
+    <input type="range" id="opacity" min="0.02" max="1" step="0.01" value="0.14" />
+
+    <div class="row"><label>Grubość</label><span class="val" id="wVal">1.6</span></div>
+    <input type="range" id="weight" min="0.5" max="6" step="0.1" value="1.6" />
+
+    <div class="section">Środki transportu
+      <label class="tgl"><input type="checkbox" id="colorByMode" /> koloruj wg trybu</label>
+    </div>
+    <div id="modes"></div>
+
+    <div class="section">Zakres dat</div>
+    <div class="daterow"><span>Od</span><input type="date" id="dtFrom" class="dateInput" /></div>
+    <input type="range" id="dFrom" min="0" max="0" value="0" step="1" />
+    <div class="daterow"><span>Do</span><input type="date" id="dtTo" class="dateInput" /></div>
+    <input type="range" id="dTo" min="0" max="0" value="0" step="1" />
+    <button id="resetDates" class="mini">Cały zakres</button>
+
+    <div class="section">Timelapse</div>
+    <div class="row"><label>Czas animacji</label>
+      <select id="tlDur">
+        <option value="10">10 s</option>
+        <option value="20" selected>20 s</option>
+        <option value="45">45 s</option>
+        <option value="90">90 s</option>
+      </select>
+    </div>
+    <button id="tlPlay" class="mini">Odtwórz narastanie tras</button>
+    <div class="chartLbl" id="tlLbl">Ślad narasta dzień po dniu w wybranym zakresie dat.</div>
+
+    <div class="section">Podkład mapy</div>
+    <select id="basemap">
+      <option value="dark">Ciemny (Strava-look)</option>
+      <option value="light">Jasny</option>
+      <option value="sat">Satelita</option>
+      <option value="none">Bez mapy (czarne tło)</option>
+    </select>
+    <label class="modeRow" style="margin-top:8px">
+      <input type="checkbox" id="showCountries">
+      <span class="mName">Podświetl odwiedzone kraje</span>
+    </label>
+
+    <div class="btns">
+      <button id="fit" class="primary">Dopasuj widok</button>
+      <button id="png">Zapisz PNG</button>
+      <button id="clear">Wyczyść</button>
+    </div>
+    <button id="cacheClear" class="mini">Wyczyść pamięć podręczną</button>
+  </div>
+
+  <div id="stats" style="display:none">
+    <div class="section">Wizyty</div>
+    <div class="statGrid">
+      <div><b id="stHome">0</b><span>wizyty w domu</span></div>
+      <div><b id="stWork">0</b><span>wizyty w pracy</span></div>
+    </div>
+    <div class="section">Rekordy trasy</div>
+    <div class="spanStats">
+      <div class="spanStat clickable" id="statDiam"><span>Najdalsze dwa punkty (linia prosta)</span><b id="stDiam">—</b></div>
+      <div class="spanStat clickable" id="statConn"><span>Najdłuższy ciągły ślad (zasięg)</span><b id="stConn">—</b></div>
+      <div class="measureHint">Kliknij metrykę, aby pokazać ją na mapie.</div>
+    </div>
+
+    <div class="section">Rekordy</div>
+    <div class="statGrid">
+      <div class="clickable" id="statTrip"><b id="rTrip">—</b><span>najdłuższa podróż</span></div>
+      <div class="clickable" id="statDay"><b id="rDay" title="">—</b><span>najwięcej w 1 dzień</span></div>
+      <div><b id="rStreak">—</b><span>seria aktywnych dni</span></div>
+      <div><b id="rMonth" title="">—</b><span>najruchliwszy miesiąc</span></div>
+    </div>
+    <div class="metaLine" id="recordHint">Kliknij rekord, aby pokazać trasę na mapie.</div>
+
+    <div class="section">Zasięg geograficzny</div>
+    <div class="spanStats">
+      <div class="spanStat clickable" id="gxN"><span>Najdalej na północ</span><b id="gN">—</b></div>
+      <div class="spanStat clickable" id="gxS"><span>Najdalej na południe</span><b id="gS">—</b></div>
+      <div class="spanStat clickable" id="gxE"><span>Najdalej na wschód</span><b id="gE">—</b></div>
+      <div class="spanStat clickable" id="gxW"><span>Najdalej na zachód</span><b id="gW">—</b></div>
+      <div class="spanStat clickable" id="gxC"><span>Środek ciężkości</span><b id="gC">—</b></div>
+      <div class="spanStat"><span>Odwiedzone rejony (~5 km)</span><b id="gCells">—</b></div>
+    </div>
+
+    <div class="section">Odwiedzone kraje <span class="tgl" id="ccCount">—</span></div>
+    <div class="spanStats" id="countryList"></div>
+    <div class="metaLine">Obszar to suma odwiedzonych rejonów w danym kraju. Kliknij kraj, aby go pokazać na mapie.</div>
+
+    <div class="section">Średnia prędkość (z postojami)</div>
+    <div id="speedRows"></div>
+
+    <div class="section">Kiedy się przemieszczasz</div>
+    <canvas id="dowHour" class="chart"></canvas>
+    <div class="chartLbl">Jaśniej = więcej kilometrów. Wiersze: dni tygodnia, kolumny: godziny doby.</div>
+
+    <div class="section" id="chTimeHdr">Kilometry miesiącami</div>
+    <canvas id="monthChart" class="chart"></canvas>
+    <div class="chartLbl" id="monthLbl">—</div>
+
+    <div class="section">Dla zabawy</div>
+    <div class="spanStats">
+      <div class="spanStat"><span>Okrążenia granic Polski</span><b id="funPL">—</b></div>
+      <div class="spanStat"><span>Długości równika</span><b id="funEq">—</b></div>
+      <div class="spanStat"><span>Dystans do Księżyca</span><b id="funMoon">—</b></div>
+      <div class="spanStat"><span>Szacowany ślad CO₂ (auto)</span><b id="funCO2">—</b></div>
+    </div>
+
+    <div class="metaLine">
+      Zakres danych: <b id="stRange">—</b><br>
+      Odcinki <b id="sSeg">0</b> · Punkty <b id="sPts">0</b> · Pliki <b id="sFiles">0</b><br>
+      Formaty: <b id="sFmt">—</b>
+    </div>
+  </div>
+
+  <details>
+    <summary>Skąd wziąć dane?</summary>
+    <div class="metaLine" style="margin-top:8px">
+      <b>Z telefonu (nowy):</b> Ustawienia → Lokalizacja → Oś czasu →
+      Eksportuj dane osi czasu → <i>Timeline.json</i> (najlepsze źródło).<br><br>
+      <b>Google Takeout (starszy):</b> takeout.google.com → „Historia lokalizacji".
+      Możesz wrzucić cały <i>.zip</i> albo pojedyncze pliki JSON.<br><br>
+      Aplikacja sama wykryje format. Dane nigdzie nie są wysyłane — całe przetwarzanie
+      dzieje się lokalnie w przeglądarce.
+    </div>
+  </details>
+</div>
+
+<div id="quickBar" style="display:none">
+  <div class="qItem"><b id="stDist">0 km</b><span id="stDistLbl">łączny dystans</span></div>
+  <div class="qSep"></div>
+  <div class="qItem"><b id="stTrips">0</b><span>podróże</span></div>
+  <div class="qSep"></div>
+  <div class="qItem"><b id="stDays">0</b><span>aktywne dni</span></div>
+  <div class="qSep"></div>
+  <div class="qItem clickable" id="qTrip"><b id="qTripVal">—</b><span>najdłuższa podróż</span></div>
+  <div class="qSep"></div>
+  <div class="qItem"><b id="gCountries">—</b><span>odwiedzone kraje</span></div>
+  <div class="qSep"></div>
+  <div class="qItem"><b id="gArea">—</b><span>odwiedzony obszar</span></div>
+</div>
+
+<div id="busy"><div class="box"><div class="spin"></div><div id="busyTxt">Przetwarzanie…</div></div></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"
+        integrity="sha512-XMVd28F1oH/O71fzwBnV7HucLxVwtxf26XV8P4wPk26EDxuGZ91N8bsOttmnomcCD3CS5ZMRL50H0GgOHvegtg=="
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script>
+/* ---------------------------------------------------------------------------
+   Google Timeline Heatmap — pojedynczy plik, wszystko client-side.
+   --------------------------------------------------------------------------- */
+
+const DAY = 86400000;
+
+// ---------- Środki transportu ----------
+const MODES = [
+  { k:'car',     name:'Samochód',    c:'#ff453a' },
+  { k:'walk',    name:'Pieszo',      c:'#32d74b' },
+  { k:'bike',    name:'Rower',       c:'#ffd60a' },
+  { k:'transit', name:'Komunikacja', c:'#0a84ff' },
+  { k:'flight',  name:'Lot',         c:'#bf5af2' },
+  { k:'unknown', name:'Inne / brak', c:'#98a2b3' },
+];
+const MODE_COLOR = Object.fromEntries(MODES.map(m => [m.k, m.c]));
+function activityToMode(type){
+  if (!type) return 'unknown';
+  type = String(type).toUpperCase();
+  if (/PASSENGER_VEHICLE|IN_VEHICLE|DRIV|MOTORCYCL|\bCAR\b|TAXI/.test(type)) return 'car';
+  if (/WALK|ON_FOOT|RUNNING|HIKING|\bFOOT\b/.test(type))                    return 'walk';
+  if (/CYCL|\bBIK/.test(type))                                             return 'bike';
+  if (/FLY|FLIGHT|AIRPLANE|AEROPLANE|\bPLANE\b/.test(type))                return 'flight';
+  if (/BUS|TRAM|TRAIN|SUBWAY|METRO|FERR|BOAT|SAIL|TRANSIT/.test(type))     return 'transit';
+  return 'unknown';
+}
+// Reklasyfikacja: aktywność o niemożliwym dla lądu dystansie/prędkości to lot
+function refineMode(mode, distM, t0, t1){
+  if (mode === 'flight') return mode;
+  const km = distM/1000;
+  let kmh = 0;
+  if (Number.isFinite(t0) && Number.isFinite(t1) && t1 > t0) kmh = km / ((t1-t0)/3600000);
+  if (km > 1500 || kmh > 300) return 'flight';
+  return mode;
+}
+
+// ---------- Mapa i podkłady ----------
+// Widok startowy obejmuje cały świat — dane mogą być z dowolnego miejsca.
+// Po wczytaniu i tak przejmuje go fitToData().
+const map = L.map('map', { preferCanvas: true, zoomControl: true, worldCopyJump: true })
+             .setView([20, 0], 2);
+
+const TILES = {
+  dark:  { url:'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+           opt:{ subdomains:'abcd', maxZoom:20, crossOrigin:'anonymous',
+                 attribution:'&copy; OpenStreetMap &copy; CARTO' } },
+  light: { url:'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+           opt:{ subdomains:'abcd', maxZoom:20, crossOrigin:'anonymous',
+                 attribution:'&copy; OpenStreetMap &copy; CARTO' } },
+  sat:   { url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+           opt:{ maxZoom:19, crossOrigin:'anonymous', attribution:'Tiles &copy; Esri' } },
+};
+let baseLayer = null, curBasemap = 'dark';
+function setBasemap(key){
+  curBasemap = key;
+  if (baseLayer){ map.removeLayer(baseLayer); baseLayer = null; }
+  if (key === 'none'){ document.getElementById('map').style.background = '#000'; return; }
+  document.getElementById('map').style.background = 'var(--bg)';
+  const t = TILES[key];
+  baseLayer = L.tileLayer(t.url, t.opt).addTo(map);
+  baseLayer.bringToBack();
+}
+setBasemap('dark');
+
+// Ile pikseli fizycznych na piksel CSS. Ograniczone do 2 — telefony z DPR 3 malowałyby
+// 2,25× więcej pikseli bez widocznego zysku, a to najcięższa część rysowania śladu.
+function renderScale(){ return Math.min(window.devicePixelRatio || 1, 2); }
+
+// ---------- Custom warstwa: additywne linie (efekt Strava) ----------
+L.HeatLines = L.Layer.extend({
+  options: { color:'#ff7a1a', opacity:0.14, weight:1.6, additive:true },
+  initialize(segments, options){
+    this._segments = segments || [];
+    this._filter = null;          // {from, to, modes:Set}
+    this._colorByMode = false;
+    L.setOptions(this, options);
+    this._updateStyles();
+  },
+  setSegments(segments){
+    this._segments = segments;
+    if (this._map){ this._projectAll(); this._redraw(); }
+    return this;
+  },
+  // Rzutowanie lat/lng na piksele to najdroższa część rysowania — przy 218 tys. punktów
+  // liczone od nowa na każdą klatkę dławi mapę po każdym zoomie. Projekcja Leafletu jest
+  // w skali liniowa, więc wystarczy policzyć piksele raz dla zoomu 0; dla każdego innego
+  // zoomu to już tylko mnożenie przez 2^zoom. Float64, bo przy zoomie 20 float32 gubiłby
+  // kilka pikseli.
+  _project(seg){
+    const c = seg.c, n = c.length, p = new Float64Array(n), map = this._map;
+    for (let i = 0; i < n; i += 2){
+      const q = map.project([c[i], c[i+1]], 0);
+      p[i] = q.x; p[i+1] = q.y;
+    }
+    return (seg.p0 = p);
+  },
+  _projectAll(){ for (const seg of this._segments) if (!seg.p0) this._project(seg); },
+  setStyle(o){ L.setOptions(this, o); this._updateStyles(); if (this._map) this._redraw(); return this; },
+  setFilter(f){ this._filter = f; if (this._map) this._redraw(); return this; },
+  // Timelapse: ślad wyłącznie narasta, więc zamiast czyścić kanwę i rzutować wszystkie punkty
+  // od nowa, dorysowujemy same odcinki odsłonięte od poprzedniej klatki. Przy additywnym
+  // blendingu to zarazem jedyny poprawny sposób — ponowne narysowanie odcinka by go rozjaśniło.
+  extendFilterTo(to){
+    const F = this._filter;
+    if (!F) return this.setFilter({ from:-Infinity, to });
+    const prev = F.to;
+    // Zaległe raty trzeba dokończyć JESZCZE ze starą górną granicą — inaczej dorysowałyby
+    // odcinki z przyrostu, a chwilę później zrobiłby to drugi raz przebieg różnicowy.
+    this._finishChunks();
+    F.to = to;
+    if (this._map && to > prev){
+      const ctx = this._offCtx, s = this._scale || 1;
+      ctx.setTransform(s,0,0,s,0,0);
+      this._paint(ctx, prev, 0, 0, this._view);   // ten sam układ, co reszta zawartości kanwy
+      this._commit();
+    }
+    return this;
+  },
+  setColorByMode(b){ this._colorByMode = b; if (this._map) this._redraw(); return this; },
+  _updateStyles(){
+    this._single = hexToRgba(this.options.color, this.options.opacity);
+    this._modeStyle = {};
+    for (const k in MODE_COLOR) this._modeStyle[k] = hexToRgba(MODE_COLOR[k], this.options.opacity);
+  },
+
+  onAdd(map){
+    this._map = map;
+    if (!this._canvas) this._initCanvas();
+    map.getPanes().overlayPane.appendChild(this._canvas);
+    map.on('moveend', this._reset, this);
+    map.on('resize',  this._reset, this);
+    // W trakcie gestu nie ma po co dorysowywać widoku, który zaraz się zmieni — przerwane
+    // raty zwalniają procesor na płynne przesuwanie, a moveend i tak zaczyna rysowanie od nowa.
+    map.on('movestart zoomstart', this._cancelChunks, this);
+    if (map.options.zoomAnimation && L.Browser.any3d) map.on('zoomanim', this._animateZoom, this);
+    this._reset();
+  },
+  onRemove(map){
+    if (this._canvas && this._canvas.parentNode) this._canvas.parentNode.removeChild(this._canvas);
+    this._cancelChunks();
+    map.off('moveend', this._reset, this);
+    map.off('resize',  this._reset, this);
+    map.off('movestart zoomstart', this._cancelChunks, this);
+    map.off('zoomanim', this._animateZoom, this);
+  },
+  _initCanvas(){
+    const canvas = this._canvas = L.DomUtil.create('canvas', 'leaflet-heatlines leaflet-layer');
+    const animated = this._map.options.zoomAnimation && L.Browser.any3d;
+    L.DomUtil.addClass(canvas, 'leaflet-zoom-' + (animated ? 'animated' : 'hide'));
+    this._ctx = canvas.getContext('2d');
+    // Kanwa robocza, poza drzewem dokumentu: cały ślad powstaje na niej, a na widoczną
+    // trafia dopiero gotowy. Dzięki temu nie widać narastania, a przez czas rysowania
+    // na ekranie zostaje poprzedni obraz — Leaflet trzyma go w miejscu transformacją,
+    // więc jest geograficznie poprawny, tylko przy zoomie chwilowo mniej ostry.
+    this._off = document.createElement('canvas');
+    this._offCtx = this._off.getContext('2d');
+    this._sizeCanvas();
+  },
+  // Kanwa ma tyle pikseli, ile ma ekran (retina/telefon), a rozmiar CSS w px logicznych —
+  // bez tego przeglądarka rozciąga obraz 1x i ślad jest rozmyty.
+  _sizeCanvas(){
+    const size = this._map.getSize(), s = renderScale();
+    const w = Math.round(size.x*s), h = Math.round(size.y*s);
+    const off = this._off;
+    if (off.width !== w || off.height !== h){ off.width = w; off.height = h; }
+    this._scale = s;
+    this._cssSize = size;
+  },
+  // Przenosi gotowy obraz na widoczną kanwę i dopiero teraz ustawia ją w nowym miejscu.
+  // Kolejność jest istotna: przestawienie kanwy przed gotowym obrazem pokazałoby
+  // starą zawartość w nowym położeniu, czyli ślad rozjechany z podkładem.
+  _commit(){
+    const v = this._view; if (!v) return;
+    const cv = this._canvas, off = this._off;
+    L.DomUtil.setPosition(cv, v.topLeft);
+    if (cv.width !== off.width || cv.height !== off.height){ cv.width = off.width; cv.height = off.height; }
+    cv.style.width = v.cssW+'px'; cv.style.height = v.cssH+'px';
+    const ctx = this._ctx;
+    ctx.setTransform(1,0,0,1,0,0);
+    ctx.globalCompositeOperation = 'copy';        // zastąp, nie domaluj — bez czyszczenia osobno
+    ctx.drawImage(off, 0, 0);
+    ctx.globalCompositeOperation = 'source-over';
+  },
+  _animateZoom(e){
+    const scale = this._map.getZoomScale(e.zoom);
+    const offset = this._map._getCenterOffset(e.center)._multiplyBy(-scale)
+                     .subtract(this._map._getMapPanePos());
+    if (L.DomUtil.setTransform) L.DomUtil.setTransform(this._canvas, offset, scale);
+    else this._canvas.style[L.DomUtil.TRANSFORM] =
+           L.DomUtil.getTranslateString(offset) + ' scale(' + scale + ')';
+  },
+  // Dopasowuje POPRZEDNI obraz do bieżącego widoku mapy. Leaflet po zakończeniu zoomu
+  // zeruje przesunięcie panelu mapy, więc transformacja z animacji przestaje pasować
+  // i stary ślad podskoczyłby. Liczymy ją od nowa: piksel starej kanwy odpowiada temu
+  // samemu miejscu na Ziemi, wystarczy przeskalować o stosunek zoomów i przesunąć.
+  _realign(){
+    const v = this._view; if (!v) return;
+    const map = this._map, k = Math.pow(2, map.getZoom());
+    const po = map.getPixelOrigin(), pp = map._getMapPanePos();
+    const r = k / v.k;
+    const dx = v.ox * r - (po.x - pp.x), dy = v.oy * r - (po.y - pp.y);
+    L.DomUtil.setTransform(this._canvas, map.containerPointToLayerPoint([dx, dy]), r);
+  },
+  // Celowo nie ruszamy tu rozmiaru widocznej kanwy — zajmie się nim _commit,
+  // gdy nowy obraz będzie gotowy.
+  _reset(){ this._realign(); this._sizeCanvas(); this._redraw(); },
+  redraw(){ if (this._map) this._redraw(); return this; },
+  // Na gęstych danych jedno przerysowanie potrafi zająć ćwierć sekundy — zrobione w całości
+  // zamraża stronę. Dzielimy je więc na porcje po ~12 ms i oddajemy sterowanie przeglądarce
+  // między nimi, a rysujemy na kanwie roboczej, żeby nie było widać narastania.
+  // Układ odniesienia rysowania: skala zoomu, początek warstwy i zasięg widoku.
+  // Musi być policzony RAZ na całe przerysowanie — przy przeciąganiu mapy pozycja panelu
+  // zmienia się w trakcie, więc raty liczone osobno rysowałyby fragmenty względem różnych
+  // punktów odniesienia i ślad rozjeżdżałby się z podkładem na proste krawędzie.
+  _viewParams(){
+    const map = this._map, b = map.getBounds().pad(0.25), size = map.getSize();
+    const po = map.getPixelOrigin(), pp = map._getMapPanePos();
+    return { k: Math.pow(2, map.getZoom()), ox: po.x - pp.x, oy: po.y - pp.y,
+             minLat: b.getSouth(), maxLat: b.getNorth(), minLng: b.getWest(), maxLng: b.getEast(),
+             topLeft: map.containerPointToLayerPoint([0,0]), cssW: size.x, cssH: size.y };
+  },
+  _redraw(){
+    this._cancelChunks();
+    this._view = this._viewParams();
+    const ctx = this._offCtx, s = this._scale || 1;
+    ctx.setTransform(s,0,0,s,0,0);
+    ctx.clearRect(0,0,this._view.cssW,this._view.cssH);
+    this._chunkAt = 0;
+    this._chunkSize = 2048;
+    this._chunkStep();
+  },
+  _chunkStep(){
+    const ctx = this._offCtx, s = this._scale || 1;
+    ctx.setTransform(s,0,0,s,0,0);
+    const t = performance.now();
+    const next = this._paint(ctx, null, this._chunkAt, this._chunkSize, this._view);
+    // Chrome kolejkuje polecenia rysowania i rasteryzuje je dopiero przy odczycie kanwy:
+    // sama pętla po 25 tys. odcinków trwa 9 ms, a odroczony flush 260 ms. Bez wymuszenia
+    // odczytu nie zmierzylibyśmy prawdziwego kosztu raty ani nie rozłożyli go w czasie.
+    ctx.getImageData(0,0,1,1);
+    const ms = performance.now() - t;
+    // celuj w ~12 ms na ratę; zmiana najwyżej 4× na krok, żeby rozmiar nie oscylował.
+    // Odczyt kanwy sam w sobie kosztuje kilka ms, więc przy tanich widokach raty rosną
+    // aż do całości — inaczej zapłacilibyśmy za sto odczytów więcej niż za rysowanie.
+    const f = Math.max(0.25, Math.min(2, 12 / Math.max(ms, 0.1)));
+    this._chunkSize = Math.max(256, Math.round(this._chunkSize * f));
+    this._chunkAt = next;
+    if (next < 0){ this._chunkTimer = null; this._commit(); }
+    else this._chunkTimer = setTimeout(() => this._chunkStep(), 0);
+  },
+  _cancelChunks(){ if (this._chunkTimer){ clearTimeout(this._chunkTimer); this._chunkTimer = null; } },
+  // Dorysuj resztę od razu — potrzebne, zanim ktoś domaluje coś na wierzchu (timelapse, eksport),
+  // inaczej te same odcinki trafiłyby na kanwę dwa razy i rozjaśniły się.
+  _finishChunks(){
+    if (this._chunkTimer == null) return;
+    this._cancelChunks();
+    const ctx = this._offCtx, s = this._scale || 1;
+    ctx.setTransform(s,0,0,s,0,0);
+    this._paint(ctx, null, this._chunkAt, 0, this._view);   // count 0 = do końca
+    this._chunkAt = -1;
+  },
+  // Rysuje ślad w układzie px logicznych — ctx musi mieć już ustawioną skalę.
+  // Wydzielone z _redraw, bo eksport PNG rysuje tym samym kodem na własnej kanwie.
+  // `after` (opcjonalne) ogranicza rysowanie do odcinków późniejszych niż podany czas.
+  // `from`/`count` służą rysowaniu na raty: zwraca indeks, od którego wznowić, albo -1 gdy koniec.
+  // `view` (zamrożony układ odniesienia) podają wszystkie rysowania na kanwę ekranową;
+  // eksport PNG go pomija i liczy własny, bo rysuje jednym przebiegiem.
+  _paint(ctx, after, from, count, view){
+    const segs = this._segments;
+    if (!segs.length) return -1;
+
+    const v = view || this._viewParams();
+    const minLat=v.minLat, maxLat=v.maxLat, minLng=v.minLng, maxLng=v.maxLng;
+
+    ctx.globalCompositeOperation = this.options.additive ? 'lighter' : 'source-over';
+    ctx.lineWidth = this.options.weight;
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+
+    const cbm = this._colorByMode, F = this._filter;
+    if (!cbm) ctx.strokeStyle = this._single;
+
+    // piksel kontenera = rzut(zoom 0) * 2^zoom - początek układu warstwy
+    const k = v.k, ox = v.ox, oy = v.oy;
+    const delta = after != null;
+    let i = from > 0 ? from : 0;
+    const stop = count > 0 ? Math.min(segs.length, i + count) : segs.length;
+    for (; i < stop; i++){
+      const seg = segs[i];
+      if (delta && !(Number.isFinite(seg.t) && seg.t > after)) continue;   // reszta już jest na kanwie
+      if (F){
+        if (Number.isFinite(seg.t) && (seg.t < F.from || seg.t > F.to)) continue;
+        if (F.modes && !F.modes.has(seg.mode)) continue;
+      }
+      const sb = seg.b;
+      if (sb[2] < minLat || sb[0] > maxLat || sb[3] < minLng || sb[1] > maxLng) continue;
+      if (cbm) ctx.strokeStyle = this._modeStyle[seg.mode] || this._modeStyle.unknown;
+      // zaokrąglenie jak w latLngToContainerPoint Leafletu — bez niego ślad rysowałby się
+      // na ułamkach piksela i wyglądałby inaczej (miększe wygładzanie, słabszy blask)
+      const p = seg.p0 || this._project(seg);
+      ctx.beginPath();
+      ctx.moveTo(Math.round(p[0]*k) - ox, Math.round(p[1]*k) - oy);
+      for (let j = 2; j < p.length; j += 2)
+        ctx.lineTo(Math.round(p[j]*k) - ox, Math.round(p[j+1]*k) - oy);
+      ctx.stroke();
+    }
+    return i < segs.length ? i : -1;
+  }
+});
+
+function hexToRgba(hex, a){
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;
+}
+
+const heat = new L.HeatLines([]).addTo(map);
+
+// ---------- Odwiedzone kraje (granice z CDN, wykrywanie w pełni lokalnie) ----------
+map.createPane('countries');
+map.getPane('countries').style.zIndex = 250;          // nad kafelkami (200), pod śladem (400)
+map.getPane('countries').style.pointerEvents = 'none';
+// Granice Natural Earth 50m — dokładniejsze niż 110m (mniej błędów przy granicach, np. PL/UA)
+const COUNTRY_URL = 'https://cdn.jsdelivr.net/gh/nvkelso/natural-earth-vector@master/geojson/ne_50m_admin_0_countries.geojson';
+let COUNTRY_GJ = null;          // surowy GeoJSON do warstwy
+let COUNTRIES = null;          // [{key, parts:[{poly, bbox:[minLng,minLat,maxLng,maxLat]}]}]
+let countryLayer = null, countryShow = false, countryLoading = null;
+const VISITED_CC = new Set();  // klucze odwiedzonych krajów
+let VISITED_LIST = [];         // [{key, name, km2, bbox:[minLat,minLng,maxLat,maxLng]}] — malejąco wg obszaru
+const CC_CACHE = new Map();    // rejon 0,05° -> klucz kraju | null (pamięć podręczna PIP)
+const CC_MIN = 2;              // min. liczba rejonów (~5 km) z ruchu naziemnego, by uznać kraj za odwiedzony
+// klucz identyfikujący kraj (nazwa administracyjna — zawsze unikalna, bez problemu kodów ISO „-99")
+function ccKey(feat){ const p = feat.properties || {}; return p.ADMIN || p.NAME || p.NAME_LONG || p.SOVEREIGNT || feat.id || '?'; }
+function ccName(feat){ const p = feat.properties || {}; return p.NAME_PL || ccKey(feat); }
+
+function pointInRing(lng, lat, ring){
+  let inside = false;
+  for (let i=0, j=ring.length-1; i<ring.length; j=i++){
+    const xi=ring[i][0], yi=ring[i][1], xj=ring[j][0], yj=ring[j][1];
+    if (((yi>lat)!==(yj>lat)) && (lng < (xj-xi)*(lat-yi)/(yj-yi)+xi)) inside = !inside;
+  }
+  return inside;
+}
+function countryAt(lat, lng){
+  if (!COUNTRIES) return null;
+  for (const c of COUNTRIES){
+    for (const part of c.parts){
+      const b = part.bbox;                       // bbox pojedynczej części (metropolia osobno od terytoriów zamorskich)
+      if (lng < b[0] || lng > b[2] || lat < b[1] || lat > b[3]) continue;
+      const poly = part.poly;
+      if (!pointInRing(lng, lat, poly[0])) continue;
+      let hole = false;
+      for (let h=1; h<poly.length; h++){ if (pointInRing(lng, lat, poly[h])){ hole = true; break; } }
+      if (!hole) return c.key;
+    }
+  }
+  return null;
+}
+function loadCountries(){
+  if (COUNTRIES) return Promise.resolve();
+  if (countryLoading) return countryLoading;
+  countryLoading = fetch(COUNTRY_URL).then(r => r.json()).then(gj => {
+    COUNTRY_GJ = gj; COUNTRIES = [];
+    for (const feat of gj.features){
+      const g = feat.geometry; if (!g) continue;
+      const polys = g.type==='Polygon' ? [g.coordinates] : g.type==='MultiPolygon' ? g.coordinates : [];
+      const parts = [];
+      for (const poly of polys){
+        let miLng=Infinity,miLat=Infinity,maLng=-Infinity,maLat=-Infinity;
+        for (const pt of poly[0]){
+          if(pt[0]<miLng)miLng=pt[0]; if(pt[0]>maLng)maLng=pt[0];
+          if(pt[1]<miLat)miLat=pt[1]; if(pt[1]>maLat)maLat=pt[1];
+        }
+        parts.push({ poly, bbox:[miLng,miLat,maLng,maLat] });
+      }
+      COUNTRIES.push({ key: ccKey(feat), name: ccName(feat), parts });
+    }
+  }).catch(e => { console.error('Granice krajów — błąd pobierania:', e); countryLoading = null; throw e; });
+  return countryLoading;
+}
+function detectCountries(cellSet){
+  VISITED_CC.clear(); VISITED_LIST = [];
+  if (!COUNTRIES) return;
+  const acc = new Map();   // klucz kraju -> {n, km2, bbox}
+  for (const key of cellSet){
+    let code = CC_CACHE.get(key);
+    const us = key.indexOf('_');
+    const lat = parseInt(key.slice(0,us),10) * 0.05, lng = parseInt(key.slice(us+1),10) * 0.05;
+    if (code === undefined){
+      code = countryAt(lat, lng);
+      CC_CACHE.set(key, code);
+    }
+    if (!code) continue;
+    let a = acc.get(code);
+    if (!a){ a = { n:0, km2:0, bbox:[lat,lng,lat,lng] }; acc.set(code, a); }
+    a.n++;
+    a.km2 += (0.05*111.32) * (0.05*111.32*Math.cos(lat*Math.PI/180));
+    const b = a.bbox;
+    if (lat<b[0])b[0]=lat; if (lng<b[1])b[1]=lng; if (lat>b[2])b[2]=lat; if (lng>b[3])b[3]=lng;
+  }
+  const nameOf = new Map(COUNTRIES.map(c => [c.key, c.name]));
+  for (const [code, a] of acc){
+    if (a.n < CC_MIN) continue;                       // odfiltruj pojedyncze rejony przy granicy
+    VISITED_CC.add(code);
+    VISITED_LIST.push({ key:code, name: nameOf.get(code) || code, km2:a.km2, bbox:a.bbox });
+  }
+  VISITED_LIST.sort((x,y) => y.km2 - x.km2);
+}
+function renderCountryList(){
+  const host = document.getElementById('countryList'); if (!host) return;
+  host.innerHTML = '';
+  document.getElementById('ccCount').textContent = VISITED_LIST.length ? VISITED_LIST.length + ' szt.' : '';
+  if (!VISITED_LIST.length){
+    host.innerHTML = '<div class="metaLine">' + (COUNTRIES ? 'Brak danych.' : 'Wczytywanie granic…') + '</div>';
+    return;
+  }
+  for (const c of VISITED_LIST){
+    const row = document.createElement('div');
+    row.className = 'spanStat clickable';
+    row.innerHTML = '<span></span><b></b>';
+    row.firstChild.textContent = c.name;
+    row.lastChild.textContent = fmtArea(c.km2);
+    row.title = 'Pokaż na mapie';
+    row.addEventListener('click', () => {
+      const b = c.bbox;
+      map.fitBounds([[b[0],b[1]],[b[2],b[3]]], { padding:[40,40], maxZoom:10 });
+    });
+    host.appendChild(row);
+  }
+}
+function styleCountry(feat){
+  const visited = VISITED_CC.has(ccKey(feat));
+  return visited
+    ? { color:'#ff9b3d', weight:1.2, opacity:0.95, fillColor:'#ff7a1a', fillOpacity:0.28 }   // wypełnienie odwiedzonego kraju
+    : { color:'#2a2f3a', weight:0.4, opacity:0.45, fillColor:'#080a0e', fillOpacity:0.6 };
+}
+function renderCountryLayer(){
+  if (countryLayer){ map.removeLayer(countryLayer); countryLayer = null; }
+  if (!countryShow || !COUNTRY_GJ) return;
+  countryLayer = L.geoJSON(COUNTRY_GJ, { pane:'countries', interactive:false, style:styleCountry }).addTo(map);
+}
+function refreshCountryStyles(){ if (countryLayer) countryLayer.setStyle(styleCountry); }
+
+// ---------- Model danych ----------
+// Segment = { c:Float32Array[lat,lng,...], b:[minLat,minLng,maxLat,maxLng], t:startMs, mode, gd:dystansKm }
+let SEGMENTS = [];
+let ACTIVITIES = [];   // {t, te, mode, dist(m)}  — do statystyk i przypisania trybu trasom
+let VISITS = [];       // {t, type: 'home'|'work'|'other'}
+let PATHREFS = [];     // referencje do segmentów-tras czekających na przypisanie trybu
+let TOTAL_PTS = 0, FILES = 0;
+const FORMATS = new Set();
+let DATA_MIN = null, DATA_MAX = null;   // ms (początek/koniec doby)
+
+function haversine(a1,o1,a2,o2){
+  const R=6371, r=Math.PI/180;
+  const dLa=(a2-a1)*r, dLn=(o2-o1)*r;
+  const s = Math.sin(dLa/2)**2 + Math.cos(a1*r)*Math.cos(a2*r)*Math.sin(dLn/2)**2;
+  return 2*R*Math.asin(Math.min(1, Math.sqrt(s)));
+}
+// Wykrywa "podejrzane" aktywności ze starych eksportów Google Timeline: deklarowany dystans
+// jest rzędu tysięcy km, a zarejestrowane punkty start/koniec leżą w tym samym miejscu
+// (znany błąd danych, głównie przy lotach 2015/2016) — takie rekordy pomijamy w statystykach.
+function isSuspiciousDistance(distM, sp, ep){
+  if (!sp || !ep || !(distM > 0)) return false;
+  const straightKm = haversine(sp[0],sp[1], ep[0],ep[1]);
+  const distKm = distM/1000;
+  return distKm > 200 && straightKm < 50 && distKm > straightKm*10;
+}
+// Otoczka wypukła (Andrew's monotone chain); punkty [lat,lng], x=lng, y=lat
+function convexHull(pts){
+  if (pts.length < 3) return pts.slice();
+  const P = pts.slice().sort((a,b) => a[1]-b[1] || a[0]-b[0]);
+  const cross = (o,a,b) => (a[1]-o[1])*(b[0]-o[0]) - (a[0]-o[0])*(b[1]-o[1]);
+  const lower = [];
+  for (const p of P){ while (lower.length>=2 && cross(lower[lower.length-2],lower[lower.length-1],p)<=0) lower.pop(); lower.push(p); }
+  const upper = [];
+  for (let i=P.length-1;i>=0;i--){ const p=P[i]; while (upper.length>=2 && cross(upper[upper.length-2],upper[upper.length-1],p)<=0) upper.pop(); upper.push(p); }
+  lower.pop(); upper.pop();
+  return lower.concat(upper);
+}
+// Najdalsza para (średnica) — punkty skrajne zawsze leżą na otoczce
+function farthestPair(hull){
+  let best = 0, ai = -1, bi = -1;
+  for (let i=0;i<hull.length;i++)
+    for (let j=i+1;j<hull.length;j++){
+      const d = haversine(hull[i][0],hull[i][1],hull[j][0],hull[j][1]);
+      if (d > best){ best = d; ai = i; bi = j; }
+    }
+  return { km:best, a: ai>=0?hull[ai]:null, b: bi>=0?hull[bi]:null };
+}
+
+function makeSegment(pts, t, mode, te){ // pts: [[lat,lng],...]
+  if (pts.length < 2) return null;
+  const c = new Float32Array(pts.length * 2);
+  let minLat=Infinity,minLng=Infinity,maxLat=-Infinity,maxLng=-Infinity, gd=0;
+  for (let i=0;i<pts.length;i++){
+    const la=pts[i][0], ln=pts[i][1];
+    c[i*2]=la; c[i*2+1]=ln;
+    if(la<minLat)minLat=la; if(la>maxLat)maxLat=la;
+    if(ln<minLng)minLng=ln; if(ln>maxLng)maxLng=ln;
+    if(i) gd += haversine(pts[i-1][0], pts[i-1][1], la, ln);
+  }
+  const t0 = Number.isFinite(t) ? t : NaN;
+  const teN = Number.isFinite(te) ? te : t0;   // czas zakończenia — potrzebny do łączenia sąsiednich podróży
+  return { c, b:[minLat,minLng,maxLat,maxLng], t: t0, te: teN, mode: mode||'unknown', gd };
+}
+function pushSeg(pts, t, mode, te){
+  const s = makeSegment(pts, t, mode, te);
+  if (s){ SEGMENTS.push(s); TOTAL_PTS += pts.length; return s; }
+  return null;
+}
+
+// ---------- Parsery ----------
+function valid(la, ln){
+  return Number.isFinite(la) && Number.isFinite(ln) &&
+         la>=-90 && la<=90 && ln>=-180 && ln<=180 && !(la===0 && ln===0);
+}
+function parseLatLngStr(s){
+  if (typeof s !== 'string') return null;
+  s = s.replace(/geo:/i,'').replace(/°/g,'').trim();
+  const m = s.split(',');
+  if (m.length < 2) return null;
+  const la = parseFloat(m[0]), ln = parseFloat(m[1]);
+  return valid(la, ln) ? [la, ln] : null;
+}
+function e7(v){ return (typeof v === 'number') ? v/1e7 : NaN; }
+function tms(s){ const t = s ? Date.parse(s) : NaN; return Number.isFinite(t) ? t : NaN; }
+
+function parseAny(obj){
+  if (Array.isArray(obj)){ FORMATS.add('Timeline (telefon)'); return parseNewSegments(obj); }
+  if (obj && Array.isArray(obj.semanticSegments)){
+    FORMATS.add('Timeline (telefon)');
+    parseNewSegments(obj.semanticSegments);
+    if (Array.isArray(obj.rawSignals)) parseRawSignals(obj.rawSignals);
+    return;
+  }
+  if (obj && Array.isArray(obj.locations)){ FORMATS.add('Takeout Records'); return parseRecords(obj.locations); }
+  if (obj && Array.isArray(obj.timelineObjects)){ FORMATS.add('Takeout Semantic'); return parseSemantic(obj.timelineObjects); }
+  if (obj && Array.isArray(obj.timelineEdits)){ FORMATS.add('Timeline Edits (Takeout)'); return parseTimelineEdits(obj.timelineEdits); }
+  if (obj && Array.isArray(obj.timelinePath)){ FORMATS.add('Timeline (telefon)'); return parseNewSegments([obj]); }
+}
+
+// Nowy format telefonowy: segmenty timelinePath / activity / visit
+function parseNewSegments(arr){
+  for (const seg of arr){
+    if (!seg) continue;
+    const t0 = tms(seg.startTime), t1 = tms(seg.endTime);
+    if (Array.isArray(seg.timelinePath) && seg.timelinePath.length){
+      const pts = [];
+      for (const p of seg.timelinePath){
+        const ll = parseLatLngStr(p.point || p.latLng || p.location);
+        if (ll) pts.push(ll);
+      }
+      const s = pushSeg(pts, t0, 'unknown', t1);
+      if (s) PATHREFS.push(s);
+    } else if (seg.activity){
+      const a = seg.activity;
+      const dist = +(a.distanceMeters) || 0;
+      const mode = refineMode(activityToMode(a.topCandidate && a.topCandidate.type), dist, t0, t1);
+      const s = parseLatLngStr(a.start && (a.start.latLng || a.start));
+      const e = parseLatLngStr(a.end   && (a.end.latLng   || a.end));
+      if (!isSuspiciousDistance(dist, s, e)) ACTIVITIES.push({ t:t0, te:Number.isFinite(t1)?t1:t0, mode, dist });
+      if (s && e) pushSeg([s, e], t0, mode, t1);   // prosta linia — geometria wypełniana przez timelinePath
+    } else if (seg.visit){
+      const st = seg.visit.topCandidate && seg.visit.topCandidate.semanticType;
+      const type = /HOME/i.test(st||'') ? 'home' : /WORK/i.test(st||'') ? 'work' : 'other';
+      VISITS.push({ t:t0, type });
+    }
+  }
+}
+function parseRawSignals(arr){
+  const pts = [];
+  for (const r of arr){
+    const pos = r.position || r;
+    const ll = parseLatLngStr(pos && (pos.LatLng || pos.latLng || pos.point));
+    const t  = pos && (pos.timestamp || pos.time);
+    if (ll) pts.push({ ll, t: t ? Date.parse(t) : NaN });
+  }
+  connectByTime(pts);
+}
+function parseTimelineEdits(arr){
+  const pts = [];
+  for (const e of arr){
+    const pos = e && e.rawSignal && e.rawSignal.signal && e.rawSignal.signal.position;
+    if (!pos || !pos.point) continue;
+    const la = e7(pos.point.latE7), ln = e7(pos.point.lngE7);
+    if (!valid(la, ln)) continue;
+    pts.push({ ll:[la, ln], t: pos.timestamp ? Date.parse(pos.timestamp) : NaN });
+  }
+  connectByTime(pts);
+}
+function parseRecords(locs){
+  const pts = [];
+  for (const l of locs){
+    let la, ln;
+    if (typeof l.latitudeE7 === 'number'){ la = e7(l.latitudeE7); ln = e7(l.longitudeE7); }
+    else if (typeof l.latE7 === 'number'){ la = e7(l.latE7); ln = e7(l.lngE7); }
+    if (!valid(la, ln)) continue;
+    let t = NaN;
+    if (l.timestamp) t = Date.parse(l.timestamp);
+    else if (l.timestampMs) t = +l.timestampMs;
+    pts.push({ ll:[la, ln], t });
+  }
+  connectByTime(pts);
+}
+// Łączy punkty w polilinie, dzieląc gdy przerwa > 10 min lub skok > 20 km
+function connectByTime(pts){
+  pts = pts.filter(p => Number.isFinite(p.t)).sort((a,b) => a.t - b.t);
+  if (pts.length < 2) return;
+  const GAP = 10*60*1000, JUMP = 20;
+  let run = [pts[0].ll], t0 = pts[0].t, te = pts[0].t;
+  for (let i=1;i<pts.length;i++){
+    const dt = pts[i].t - pts[i-1].t;
+    const dd = haversine(pts[i-1].ll[0], pts[i-1].ll[1], pts[i].ll[0], pts[i].ll[1]);
+    if (dt > GAP || dd > JUMP){ pushSeg(run, t0, 'unknown', te); run = []; t0 = pts[i].t; }
+    run.push(pts[i].ll); te = pts[i].t;
+  }
+  pushSeg(run, t0, 'unknown', te);
+}
+// Takeout Semantic — activitySegment z gotowym trybem i geometrią
+function parseSemantic(objs){
+  for (const o of objs){
+    if (o.placeVisit){
+      const st = o.placeVisit.location && o.placeVisit.location.semanticType;
+      VISITS.push({ t: tms(o.placeVisit.duration && o.placeVisit.duration.startTimestamp),
+                    type: /HOME/i.test(st||'')?'home':/WORK/i.test(st||'')?'work':'other' });
+      continue;
+    }
+    const as = o.activitySegment;
+    if (!as) continue;
+    let mode = activityToMode(as.activityType);
+    const t0 = tms(as.duration && as.duration.startTimestamp);
+    let pts = null;
+    if (as.simplifiedRawPath && Array.isArray(as.simplifiedRawPath.points)){
+      pts = as.simplifiedRawPath.points.map(p => [e7(p.latE7), e7(p.lngE7)]).filter(x => valid(x[0],x[1]));
+    } else if (as.waypointPath && Array.isArray(as.waypointPath.waypoints)){
+      pts = as.waypointPath.waypoints.map(p => [e7(p.latE7), e7(p.lngE7)]).filter(x => valid(x[0],x[1]));
+    } else if (as.startLocation && as.endLocation){
+      const s = [e7(as.startLocation.latitudeE7), e7(as.startLocation.longitudeE7)];
+      const e = [e7(as.endLocation.latitudeE7),   e7(as.endLocation.longitudeE7)];
+      if (valid(s[0],s[1]) && valid(e[0],e[1])) pts = [s, e];
+    }
+    if (pts && pts.length >= 2){
+      const t1 = tms(as.duration && as.duration.endTimestamp);
+      const dist = typeof as.distance === 'number' ? as.distance
+                 : pts.reduce((d,_,i)=> i? d+haversine(pts[i-1][0],pts[i-1][1],pts[i][0],pts[i][1])*1000 : 0, 0);
+      mode = refineMode(mode, dist, t0, t1);
+      pushSeg(pts, t0, mode, t1);
+      if (!isSuspiciousDistance(dist, pts[0], pts[pts.length-1])) ACTIVITIES.push({ t:t0, te:t1, mode, dist });
+    }
+  }
+}
+
+// Po wczytaniu: przypisz trybom trasom timelinePath tryb z nakładających się aktywności
+function resolveModes(){
+  if (!PATHREFS.length || !ACTIVITIES.length) return;
+  const acts = ACTIVITIES.filter(a => Number.isFinite(a.t)).sort((a,b)=>a.t-b.t);
+  const starts = acts.map(a => a.t);
+  const lowerBound = (t) => { let lo=0, hi=starts.length; while(lo<hi){ const m=(lo+hi)>>1; if(starts[m]<t) lo=m+1; else hi=m; } return lo; };
+  for (const seg of PATHREFS){
+    const t0 = seg.t, t1 = Number.isFinite(seg.te) ? seg.te : seg.t;
+    if (!Number.isFinite(t0)) continue;
+    // szukamy aktywności o największym nakładaniu czasowym
+    let bestMode = 'unknown', bestOv = 0;
+    let i = Math.max(0, lowerBound(t0) - 4);
+    for (; i < acts.length; i++){
+      const a = acts[i];
+      if (a.t > t1) break;
+      const ov = Math.min(t1, a.te) - Math.max(t0, a.t);
+      if (ov > bestOv){ bestOv = ov; bestMode = a.mode; }
+    }
+    if (bestOv > 0) seg.mode = bestMode;
+  }
+}
+
+// ---------- Wczytywanie plików ----------
+// ---------- Pamięć podręczna sparsowanych danych (IndexedDB) ----------
+// Parsowanie dużego eksportu trwa kilkanaście sekund, a wynik zależy wyłącznie od zawartości
+// plików — trzymamy go więc pod kluczem z nazw, rozmiarów i dat modyfikacji. Klucz jest per
+// ZESTAW plików, a nie jeden globalny: strona ma działać dla dowolnego eksportu, więc dwa różne
+// pliki muszą mieć dwa różne wpisy, a podmieniony plik nie może trafić na cudzy wynik.
+const CACHE_DB = 'timeline-heatmap', CACHE_STORE = 'parsed';
+const CACHE_SCHEMA = 2;      // podbić przy każdej zmianie kształtu segmentów
+const CACHE_KEEP = 3;        // ile zestawów trzymamy; nadmiar kasujemy od najstarszego
+
+function cacheKey(files){
+  return files.map(f => `${f.name}|${f.size}|${f.lastModified}`).sort().join('&');
+}
+function idbOpen(){
+  return new Promise((res, rej) => {
+    const r = indexedDB.open(CACHE_DB, 1);
+    r.onupgradeneeded = () => {
+      const db = r.result;
+      if (!db.objectStoreNames.contains(CACHE_STORE))
+        db.createObjectStore(CACHE_STORE, { keyPath:'key' }).createIndex('savedAt', 'savedAt');
+    };
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+}
+function idbRun(db, mode, fn){
+  return new Promise((res, rej) => {
+    const tx = db.transaction(CACHE_STORE, mode);
+    const req = fn(tx.objectStore(CACHE_STORE));
+    let out;
+    if (req) req.onsuccess = () => { out = req.result; };
+    tx.oncomplete = () => res(out);
+    tx.onerror = tx.onabort = () => rej(tx.error);
+  });
+}
+
+// Zamiast 31 tys. drobnych obiektów zapisujemy kilka płaskich tablic typowanych — IndexedDB
+// klonuje je jednym ciągiem zamiast element po elemencie, więc i zapis, i odczyt są dużo tańsze.
+function packData(){
+  const n = SEGMENTS.length, mIdx = new Map(MODES.map((m,i) => [m.k, i]));
+  const unk = mIdx.get('unknown');
+  let np = 0, nh = 0;
+  for (const s of SEGMENTS){ np += s.c.length; nh += s.hull.length * 2; }
+  const coords = new Float32Array(np), cOff = new Uint32Array(n+1);
+  const hull   = new Float32Array(nh), hOff = new Uint32Array(n+1);
+  // Współrzędne mogą być Float32 (tak trzyma je parser), ale bbox i długość trasy powstają
+  // w parserze jako liczby podwójnej precyzji — w Float32 cache przestałby być
+  // nieodróżnialny od świeżego parsowania. Float64 kosztuje tu ~0,6 MB i tyle.
+  const bbox = new Float64Array(n*4), times = new Float64Array(n*2);   // Float64 trzyma też NaN
+  const gd = new Float64Array(n), modes = new Uint8Array(n);
+  let ci = 0, hi = 0;
+  for (let i=0;i<n;i++){
+    const s = SEGMENTS[i];
+    cOff[i] = ci; coords.set(s.c, ci); ci += s.c.length;
+    hOff[i] = hi; for (const p of s.hull){ hull[hi++] = p[0]; hull[hi++] = p[1]; }
+    bbox.set(s.b, i*4);
+    times[i*2] = s.t; times[i*2+1] = s.te;
+    gd[i] = s.gd;
+    modes[i] = mIdx.has(s.mode) ? mIdx.get(s.mode) : unk;
+  }
+  cOff[n] = ci; hOff[n] = hi;
+
+  const an = ACTIVITIES.length;
+  const aTimes = new Float64Array(an*2), aDist = new Float64Array(an), aMode = new Uint8Array(an);
+  for (let i=0;i<an;i++){
+    const a = ACTIVITIES[i];
+    aTimes[i*2] = a.t; aTimes[i*2+1] = a.te; aDist[i] = a.dist;
+    aMode[i] = mIdx.has(a.mode) ? mIdx.get(a.mode) : unk;
+  }
+  const vn = VISITS.length;
+  const vTimes = new Float64Array(vn), vType = new Uint8Array(vn);
+  for (let i=0;i<vn;i++){
+    vTimes[i] = VISITS[i].t;
+    const k = VISIT_TYPES.indexOf(VISITS[i].type);
+    vType[i] = k < 0 ? VISIT_TYPES.indexOf('other') : k;
+  }
+  return { schema:CACHE_SCHEMA, n, coords, cOff, hull, hOff, bbox, times, gd, modes,
+           aTimes, aDist, aMode, vTimes, vType,
+           totalPts:TOTAL_PTS, files:FILES, formats:[...FORMATS], dataMin:DATA_MIN, dataMax:DATA_MAX };
+}
+const VISIT_TYPES = ['home','work','other'];
+function unpackData(r){
+  const n = r.n, MK = MODES.map(m => m.k);
+  SEGMENTS = new Array(n);
+  for (let i=0;i<n;i++){
+    const hs = r.hOff[i], he = r.hOff[i+1], hull = new Array((he-hs)/2);
+    for (let j=hs, k=0; j<he; j+=2, k++) hull[k] = [r.hull[j], r.hull[j+1]];
+    SEGMENTS[i] = {
+      c: r.coords.subarray(r.cOff[i], r.cOff[i+1]),      // widok na wspólny bufor, bez kopiowania
+      b: [r.bbox[i*4], r.bbox[i*4+1], r.bbox[i*4+2], r.bbox[i*4+3]],
+      t: r.times[i*2], te: r.times[i*2+1],
+      mode: MK[r.modes[i]] || 'unknown', gd: r.gd[i], hull
+    };
+  }
+  ACTIVITIES = new Array(r.aMode.length);
+  for (let i=0;i<ACTIVITIES.length;i++)
+    ACTIVITIES[i] = { t:r.aTimes[i*2], te:r.aTimes[i*2+1], mode:MK[r.aMode[i]]||'unknown', dist:r.aDist[i] };
+  VISITS = new Array(r.vType.length);
+  for (let i=0;i<VISITS.length;i++)
+    VISITS[i] = { t:r.vTimes[i], type: VISIT_TYPES[r.vType[i]] || 'other' };
+  PATHREFS = [];
+  TOTAL_PTS = r.totalPts; FILES = r.files;
+  FORMATS.clear(); for (const f of r.formats) FORMATS.add(f);
+  DATA_MIN = r.dataMin; DATA_MAX = r.dataMax;
+}
+
+async function cacheLoad(key){
+  if (!window.indexedDB) return null;
+  const db = await idbOpen();
+  try {
+    const rec = await idbRun(db, 'readonly', st => st.get(key));
+    return rec && rec.schema === CACHE_SCHEMA ? rec : null;   // starszy układ danych ignorujemy
+  } finally { db.close(); }
+}
+async function cacheSave(key){
+  if (!window.indexedDB) return;
+  const db = await idbOpen();
+  try {
+    const rec = packData();
+    rec.key = key; rec.savedAt = Date.now();
+    await idbRun(db, 'readwrite', st => st.put(rec));
+    // kasuj najstarsze ponad limit — po kluczach z indeksu, żeby nie wczytywać wielkich wartości
+    const byAge = await new Promise((res, rej) => {
+      const tx = db.transaction(CACHE_STORE, 'readonly'), out = [];
+      tx.objectStore(CACHE_STORE).index('savedAt').openKeyCursor().onsuccess = e => {
+        const c = e.target.result;
+        if (c){ out.push(c.primaryKey); c.continue(); }
+      };
+      tx.oncomplete = () => res(out); tx.onerror = () => rej(tx.error);
+    });
+    for (const k of byAge.slice(0, Math.max(0, byAge.length - CACHE_KEEP)))
+      await idbRun(db, 'readwrite', st => st.delete(k));
+  } finally { db.close(); }
+}
+function cacheNote(txt){ document.getElementById('cacheNote').textContent = txt || ''; }
+
+async function handleFiles(fileList){
+  const files = Array.from(fileList);
+  if (!files.length) return;
+  busy(true, 'Wczytywanie plików…');
+  cacheNote('');
+  const key = cacheKey(files);
+  const t0 = performance.now();
+  try {
+    const hit = await cacheLoad(key);
+    if (hit){
+      busy(true, 'Odczyt z pamięci podręcznej…');
+      unpackData(hit);
+      finalizeLoad(true);
+      cacheNote(`Wczytano z pamięci podręcznej w ${((performance.now()-t0)/1000).toFixed(1)} s.`);
+      return;
+    }
+  } catch (e){ console.warn('Pamięć podręczna niedostępna przy odczycie:', e); }
+  try {
+    for (const f of files){
+      const name = f.name.toLowerCase();
+      if (name.endsWith('.zip')) await handleZip(f);
+      else if (name.endsWith('.json')){
+        busy(true, 'Parsowanie: ' + f.name);
+        await parseTextSafely(await f.text(), f.name);
+        FILES++;
+      }
+    }
+  } catch (err){ console.error(err); alert('Błąd podczas wczytywania: ' + err.message); }
+  const parseS = ((performance.now()-t0)/1000).toFixed(1);
+  finalizeLoad();
+  if (!SEGMENTS.length) return;
+  // Zapis nie może blokować mapy — użytkownik ma już wynik na ekranie.
+  cacheSave(key).then(
+    () => cacheNote(`Sparsowano w ${parseS} s. Następnym razem wczyta się z pamięci podręcznej.`),
+    e  => { console.warn('Nie udało się zapisać pamięci podręcznej:', e);
+            cacheNote(`Sparsowano w ${parseS} s. Nie udało się zapisać w pamięci podręcznej.`); });
+}
+async function handleZip(file){
+  if (typeof JSZip === 'undefined'){ alert('Biblioteka ZIP nie została załadowana (brak internetu?).'); return; }
+  busy(true, 'Rozpakowywanie ZIP…');
+  const zip = await JSZip.loadAsync(file);
+  const entries = Object.values(zip.files).filter(e => !e.dir && e.name.toLowerCase().endsWith('.json'));
+  let i = 0;
+  for (const e of entries){
+    i++;
+    busy(true, `Parsowanie (${i}/${entries.length}): ${e.name.split('/').pop()}`);
+    await parseTextSafely(await e.async('string'), e.name);
+    FILES++;
+    if (i % 15 === 0) await new Promise(r => setTimeout(r));
+  }
+}
+async function parseTextSafely(txt, name){
+  let obj;
+  try { obj = JSON.parse(txt); }
+  catch (e){ console.warn('Pominięto (niepoprawny JSON):', name); return; }
+  parseAny(obj);
+}
+
+// zarezerwuj w panelu miejsce na dolny pasek, żeby się nie zachodziły na niskich oknach.
+// Liczone z innerHeight, a nie 100vh — na telefonie vh obejmuje obszar pod paskiem adresu.
+function syncPanelHeight(){
+  const qb = document.getElementById('quickBar');
+  const reserve = qb.style.display !== 'none' ? (qb.getBoundingClientRect().height + 24) : 0;
+  document.getElementById('panel').style.maxHeight = Math.max(160, window.innerHeight - 24 - reserve) + 'px';
+}
+
+// fromCache — tryby, otoczki i zakres dat są już policzone i wczytane razem z danymi
+function finalizeLoad(fromCache){
+  if (!fromCache){
+    resolveModes();
+    // prekalkulacja: otoczka wypukła każdego segmentu (raz, niezależnie od filtrów) —
+    // używana zarówno do globalnej średnicy, jak i do łączenia segmentów w ciągłe podróże
+    for (const s of SEGMENTS){
+      const pts = [];
+      for (let i=0;i<s.c.length;i+=2) pts.push([s.c[i], s.c[i+1]]);
+      s.hull = convexHull(pts);
+    }
+    // zakres dat z segmentów
+    let mn=Infinity, mx=-Infinity;
+    for (const s of SEGMENTS){ if (Number.isFinite(s.t)){ if(s.t<mn)mn=s.t; if(s.t>mx)mx=s.t; } }
+    if (Number.isFinite(mn)){ DATA_MIN = dayStart(mn); DATA_MAX = dayStart(mx); }
+    else { DATA_MIN = DATA_MAX = null; }
+  }
+
+  heat.setSegments(SEGMENTS);
+  buildModeRows();
+  initDateSliders();
+  applyFilter();
+  document.getElementById('controls').style.display = SEGMENTS.length ? 'block' : 'none';
+  document.getElementById('stats').style.display   = 'block';
+  document.getElementById('quickBar').style.display = SEGMENTS.length ? 'flex' : 'none';
+  syncPanelHeight();
+  busy(false);
+  if (SEGMENTS.length && isNarrow()) setPanelOpen(false);   // na telefonie oddaj ekran mapie
+  if (SEGMENTS.length) fitToData();
+  else alert('Nie znaleziono żadnych tras w tych plikach. Upewnij się, że to eksport historii lokalizacji Google.');
+}
+
+function fitToData(){
+  if (!SEGMENTS.length) return;
+  let minLat=Infinity,minLng=Infinity,maxLat=-Infinity,maxLng=-Infinity;
+  for (const s of SEGMENTS){
+    if (s.b[0]<minLat)minLat=s.b[0]; if (s.b[2]>maxLat)maxLat=s.b[2];
+    if (s.b[1]<minLng)minLng=s.b[1]; if (s.b[3]>maxLng)maxLng=s.b[3];
+  }
+  map.fitBounds([[minLat,minLng],[maxLat,maxLng]], { padding:[30,30] });
+}
+
+function clearAll(){
+  stopTimelapse(false);
+  SEGMENTS = []; ACTIVITIES = []; VISITS = []; PATHREFS = [];
+  TOTAL_PTS = 0; FILES = 0; FORMATS.clear(); DATA_MIN = DATA_MAX = null;
+  cacheNote('');
+  heat.setSegments(SEGMENTS).setFilter(null);
+  measureShown = null; measureLayer.clearLayers(); poiLayer.clearLayers();
+  recordShown = null; recordPrevView = null; RECORD.trip = null; RECORD.day = null; RECORD.period = null;
+  CHART = null;
+  countryShow = false; VISITED_CC.clear(); VISITED_LIST = [];
+  renderCountryLayer(); renderCountryList();
+  document.getElementById('gCountries').textContent = '—';
+  const scb = document.getElementById('showCountries'); if (scb) scb.checked = false;
+  document.getElementById('statDiam').classList.remove('active');
+  document.getElementById('statConn').classList.remove('active');
+  document.getElementById('statTrip').classList.remove('active');
+  document.getElementById('statDay').classList.remove('active');
+  document.getElementById('qTrip').classList.remove('active');
+  document.getElementById('controls').style.display = 'none';
+  document.getElementById('stats').style.display = 'none';
+  document.getElementById('quickBar').style.display = 'none';
+  setPanelOpen(true);        // panel z polem wczytywania musi wrócić na wierzch
+}
+
+function busy(on, txt){
+  document.getElementById('busy').style.display = on ? 'grid' : 'none';
+  if (txt) document.getElementById('busyTxt').textContent = txt;
+}
+
+// ---------- Filtry + statystyki ----------
+const visibleModes = new Set(MODES.map(m => m.k));
+function dayStart(ms){ const d = new Date(ms); d.setHours(0,0,0,0); return d.getTime(); }
+function fmtDate(ms){ const d=new Date(ms);
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function fmtKm(m){
+  const km = m/1000;
+  if (km >= 10) return Math.round(km).toLocaleString('pl-PL') + ' km';
+  return km.toFixed(1) + ' km';
+}
+const MONTHS_PL = ['sty','lut','mar','kwi','maj','cze','lip','sie','wrz','paź','lis','gru'];
+function dayIndex(ts){ const d = new Date(ts); return Math.floor(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())/DAY); }
+function monthKey(ts){ const d = new Date(ts); return d.getFullYear()*12 + d.getMonth(); }
+function monthLabel(k){ return MONTHS_PL[((k%12)+12)%12] + ' ' + String(Math.floor(k/12)).slice(2); }
+function fmtArea(a){ return a >= 100 ? Math.round(a).toLocaleString('pl-PL')+' km²' : a.toFixed(1)+' km²'; }
+function longestStreak(idxSet){
+  const arr = [...idxSet].sort((a,b)=>a-b);
+  let best = arr.length ? 1 : 0, cur = 1;
+  for (let i=1;i<arr.length;i++){ if (arr[i]-arr[i-1]===1) cur++; else cur=1; if (cur>best) best=cur; }
+  return best;
+}
+
+function currentRange(){
+  if (DATA_MIN == null) return { from:-Infinity, to:Infinity };
+  const fi = +document.getElementById('dFrom').value;
+  const ti = +document.getElementById('dTo').value;
+  return { from: DATA_MIN + fi*DAY, to: DATA_MIN + (ti+1)*DAY - 1 };
+}
+// Zakres faktycznie pokazany na mapie: zawężony do wybranego rekordu/okresu, inaczej z suwaków.
+// Statystyki liczymy z niego, żeby opisywały to, co widać (wyjątek: wykres w czasie — patrz updateGeoStats).
+function activeRange(){
+  const rec = recordShown && RECORD[recordShown];
+  return rec ? { from:rec.from, to:rec.to } : currentRange();
+}
+function applyFilter(){
+  stopTimelapse(false);                                // każda zmiana filtra przerywa animację
+  if (recordShown){ exitRecordView(false); return; }   // wyjście z rekordu samo odświeża filtr i statystyki
+  const r = currentRange();
+  heat.setFilter({ from:r.from, to:r.to, modes:new Set(visibleModes) });
+  updateStats(r);
+  scheduleGeo();
+}
+
+// ---------- Timelapse ----------
+// Przesuwa górną granicę filtra od początku do końca wybranego zakresu, więc ślad narasta.
+// Postęp liczony z zegara, a nie z liczby klatek — dzięki temu animacja trwa tyle, ile obiecuje,
+// niezależnie od tego, ile klatek uda się wyrenderować (w karcie w tle timery i tak są dławione).
+let TL = null;   // { from, to, durMs, start, timer, lastStats }
+function startTimelapse(){
+  if (!SEGMENTS.length || TL) return;
+  if (recordShown) exitRecordView(false);
+  const r = currentRange();
+  if (!(r.to > r.from)) return;
+  TL = { from:r.from, to:r.to, durMs: (+document.getElementById('tlDur').value)*1000,
+         start: performance.now(), timer: null };
+  heat.setFilter({ from:r.from, to:r.from, modes:new Set(visibleModes) });   // czysta kanwa na start
+  document.getElementById('tlPlay').textContent = 'Zatrzymaj';
+  tlStep();
+}
+function tlStep(){
+  if (!TL) return;
+  const p = Math.min(1, (performance.now() - TL.start) / TL.durMs);
+  const cur = TL.from + (TL.to - TL.from)*p;
+  heat.extendFilterTo(cur);
+  document.getElementById('tlLbl').textContent = fmtDate(TL.from) + ' → ' + fmtDate(cur);
+  // licznik kilometrów ma rosnąć razem ze śladem, ale nie 30 razy na sekundę
+  const now = performance.now();
+  if (!TL.lastStats || now - TL.lastStats > 300){ TL.lastStats = now; updateStats({ from:TL.from, to:cur }); }
+  if (p >= 1){ stopTimelapse(true); return; }
+  TL.timer = setTimeout(tlStep, 33);
+}
+// W karcie w tle przeglądarka dławi timery do jednego wybudzenia na minutę, więc animacja
+// i tak by stanęła — lepiej wstrzymać ją świadomie i wznowić od tego samego miejsca,
+// zamiast pozwolić jej „przewinąć się" niewidocznie.
+document.addEventListener('visibilitychange', () => {
+  if (!TL) return;
+  if (document.hidden){ clearTimeout(TL.timer); TL.timer = null; TL.pausedAt = performance.now(); }
+  else if (TL.pausedAt != null){ TL.start += performance.now() - TL.pausedAt; TL.pausedAt = null; tlStep(); }
+});
+function stopTimelapse(refresh){
+  if (!TL) return;
+  clearTimeout(TL.timer); TL = null;
+  document.getElementById('tlPlay').textContent = 'Odtwórz narastanie tras';
+  document.getElementById('tlLbl').textContent = 'Ślad narasta dzień po dniu w wybranym zakresie dat.';
+  if (refresh) applyFilter();
+}
+
+// Statystyki odległości (cięższe) — liczone z opóźnieniem, by suwak był płynny
+let geoTimer = null;
+function scheduleGeo(){
+  document.getElementById('stDiam').textContent = '…';
+  document.getElementById('stConn').textContent = '…';
+  clearTimeout(geoTimer);
+  geoTimer = setTimeout(updateGeoStats, 160);
+}
+function updateGeoStats(){
+  const r = activeRange();
+  const inRange = t => !Number.isFinite(t) || (t >= r.from && t <= r.to);
+  const cand = [];                // kandydaci do globalnej średnicy (wierzchołki otoczek)
+  let n=-Infinity, s2=Infinity, e=-Infinity, w=Infinity;  // skrajne współrzędne
+  let np=null, sp=null, ep=null, wp=null;                 // punkty skrajne [lat,lng]
+  let sumLat=0, sumLng=0, cnt=0;                          // do centroidy
+  const cells = new Set();                                // odwiedzone rejony (~5 km) — tylko ruch naziemny (bez lotów)
+  for (const s of SEGMENTS){
+    if (!inRange(s.t) || !visibleModes.has(s.mode)) continue;
+    if (s.hull) for (const p of s.hull) cand.push(p);
+    const ground = s.mode !== 'flight';                   // loty: liczą się do zasięgu, ale NIE do „odwiedzonych"
+    const c = s.c;
+    for (let i=0;i<c.length;i+=2){
+      const la=c[i], ln=c[i+1];
+      if (la>n){ n=la; np=[la,ln]; }
+      if (la<s2){ s2=la; sp=[la,ln]; }
+      if (ln>e){ e=ln; ep=[la,ln]; }
+      if (ln<w){ w=ln; wp=[la,ln]; }
+      sumLat+=la; sumLng+=ln; cnt++;
+      if (ground) cells.add(Math.round(la/0.05)+'_'+Math.round(ln/0.05));
+    }
+  }
+  const hull = cand.length ? convexHull(cand) : [];
+  const gp = hull.length ? farthestPair(hull) : { km:0, a:null, b:null };
+  GEO.diam = { km:gp.km, a:gp.a, b:gp.b };
+
+  // Najdłuższy ciągły ślad: sąsiednie segmenty łączymy w jedną podróż, jeśli przerwa < 24h
+  // ORAZ w międzyczasie nie było powrotu do domu (nawet krótkiego) — tak wielodniowa wycieczka
+  // z noclegami poza domem liczy się jako jedna ciągła trasa, a codzienne dojazdy do pracy nie.
+  const CHAIN_GAP_MS = 24*3600*1000;
+  const homeTimes = VISITS.filter(v => v.type==='home' && Number.isFinite(v.t)).map(v=>v.t).sort((a,b)=>a-b);
+  const homeBetween = (t0, t1) => {
+    if (!homeTimes.length || !(t1 > t0)) return false;
+    let lo=0, hi=homeTimes.length;
+    while (lo<hi){ const m=(lo+hi)>>1; if (homeTimes[m] < t0) lo=m+1; else hi=m; }
+    return lo < homeTimes.length && homeTimes[lo] <= t1;
+  };
+  const chained = SEGMENTS.filter(s => inRange(s.t) && visibleModes.has(s.mode) && Number.isFinite(s.t))
+                          .sort((a,b) => a.t - b.t);
+  let bestChainKm = 0, bestChainA = null, bestChainB = null;
+  let chainPts = [], chainEnd = -Infinity;
+  const flushChain = () => {
+    if (chainPts.length){
+      const ch = convexHull(chainPts);
+      const fp = farthestPair(ch);
+      if (fp.km > bestChainKm){ bestChainKm = fp.km; bestChainA = fp.a; bestChainB = fp.b; }
+    }
+    chainPts = [];
+  };
+  for (const s of chained){
+    const te = Number.isFinite(s.te) ? s.te : s.t;
+    if (chainPts.length && (s.t - chainEnd > CHAIN_GAP_MS || homeBetween(chainEnd, s.t))) flushChain();
+    if (s.hull && s.hull.length) for (const p of s.hull) chainPts.push(p);
+    chainEnd = Math.max(chainEnd, te);
+  }
+  flushChain();
+  GEO.conn = { km:bestChainKm, a:bestChainA, b:bestChainB };
+
+  const centroid = cnt ? [sumLat/cnt, sumLng/cnt] : null;
+  GEO.ext = { n:np, s:sp, e:ep, w:wp, centroid };
+  document.getElementById('stDiam').textContent = cand.length ? fmtKm(GEO.diam.km*1000) : '—';
+  document.getElementById('stConn').textContent = bestChainKm > 0 ? fmtKm(GEO.conn.km*1000) : '—';
+
+  // Zasięg geograficzny
+  const setExt = (id, p, val) => document.getElementById(id).textContent = p ? val : '—';
+  setExt('gN', np, np && np[0].toFixed(3)+'°');
+  setExt('gS', sp, sp && sp[0].toFixed(3)+'°');
+  setExt('gE', ep, ep && ep[1].toFixed(3)+'°');
+  setExt('gW', wp, wp && wp[1].toFixed(3)+'°');
+  setExt('gC', centroid, centroid && (centroid[0].toFixed(3)+'°, '+centroid[1].toFixed(3)+'°'));
+  // realny odwiedzony obszar = suma pól odwiedzonych rejonów (~5 km), z korektą na szerokość geogr.
+  let footprint = 0; const CELL = 0.05, KMDEG = 111.32;
+  for (const key of cells){
+    const lat = parseInt(key, 10) * CELL;
+    footprint += (CELL*KMDEG) * (CELL*KMDEG*Math.cos(lat*Math.PI/180));
+  }
+  document.getElementById('gArea').textContent  = cells.size ? fmtArea(footprint) : '—';
+  document.getElementById('gCells').textContent = cnt ? cells.size.toLocaleString('pl-PL') : '—';
+
+  // Odwiedzone kraje (potrzebne granice z CDN — dociągane leniwie)
+  const cEl = document.getElementById('gCountries');
+  if (!cnt){ cEl.textContent = '—'; VISITED_CC.clear(); VISITED_LIST = []; }
+  else if (COUNTRIES){
+    detectCountries(cells);
+    cEl.textContent = VISITED_CC.size.toLocaleString('pl-PL');
+    refreshCountryStyles();
+  } else {
+    cEl.textContent = '…';
+    loadCountries().then(() => updateGeoStats()).catch(() => { cEl.textContent = '—'; renderCountryList(); });
+  }
+  renderCountryList();
+
+  drawDowHour(r, inRange);
+  // wykres w czasie zawsze z pełnego zakresu suwaków — inaczej po kliknięciu słupka
+  // zostałby na wykresie tylko ten jeden okres i nie dałoby się przełączyć na inny
+  const rAll = currentRange();
+  drawMonthChart(rAll, t => !Number.isFinite(t) || (t >= rAll.from && t <= rAll.to));
+  refreshMeasure();
+}
+
+// Mini-heatmapa 7×24 (dzień tygodnia × godzina), jasność = km
+function drawDowHour(r, inRange){
+  const cv = document.getElementById('dowHour'); if (!cv) return;
+  const buckets = new Float64Array(7*24);
+  const add = (t, km) => {
+    if (!Number.isFinite(t)) return;
+    const d = new Date(t), dw = (d.getDay()+6)%7;      // Pn=0 … Nd=6
+    buckets[dw*24 + d.getHours()] += km;
+  };
+  if (ACTIVITIES.length){
+    for (const a of ACTIVITIES){ if (inRange(a.t) && visibleModes.has(a.mode)) add(a.t, a.dist/1000); }
+  } else {
+    for (const s of SEGMENTS){ if (inRange(s.t) && visibleModes.has(s.mode)) add(s.t, s.gd); }
+  }
+  let maxV = 0; for (const v of buckets) if (v>maxV) maxV=v;
+  const dpr = window.devicePixelRatio || 1;
+  const W = cv.clientWidth || 284, labelW = 20, rowH = 13, top = 2, botLbl = 12;
+  const H = 7*rowH + top + botLbl;
+  cv.width = W*dpr; cv.height = H*dpr; cv.style.height = H+'px';
+  const ctx = cv.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,W,H);
+  const cellW = (W-labelW)/24, dows = ['Pn','Wt','Śr','Cz','Pt','So','Nd'];
+  ctx.font = '9px -apple-system,Segoe UI,sans-serif'; ctx.textBaseline = 'middle';
+  for (let dw=0; dw<7; dw++){
+    ctx.fillStyle = '#6b7482'; ctx.textAlign = 'left';
+    ctx.fillText(dows[dw], 0, top + dw*rowH + rowH/2);
+    for (let h=0; h<24; h++){
+      const a = maxV>0 ? buckets[dw*24+h]/maxV : 0;
+      ctx.fillStyle = a>0 ? `rgba(255,122,26,${0.12 + 0.88*Math.sqrt(a)})` : '#20242d';
+      ctx.fillRect(labelW + h*cellW, top + dw*rowH, Math.max(1,cellW-1), rowH-1);
+    }
+  }
+  ctx.fillStyle = '#6b7482'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  for (const h of [0,6,12,18,23]) ctx.fillText(String(h), labelW + h*cellW + cellW/2, 7*rowH + top + 2);
+}
+
+// Wykres słupkowy: km w czasie — miesięcznie, a przy długim zakresie automatycznie rocznie
+let CHART = null;      // { bars:[{label,short,v,key,from,to}], yearly, maxV, maxLabel }
+const AX_W = 26;       // szerokość osi Y wykresu — używana też przy trafianiu w słupek kliknięciem
+
+function drawMonthChart(r, inRange){
+  const cv = document.getElementById('monthChart'); if (!cv) return;
+  const m = new Map();
+  const add = (t, km) => { if (Number.isFinite(t)) m.set(monthKey(t), (m.get(monthKey(t))||0)+km); };
+  if (ACTIVITIES.length){
+    for (const a of ACTIVITIES){ if (inRange(a.t) && visibleModes.has(a.mode)) add(a.t, a.dist/1000); }
+  } else {
+    for (const s of SEGMENTS){ if (inRange(s.t) && visibleModes.has(s.mode)) add(s.t, s.gd); }
+  }
+  const hdr = document.getElementById('chTimeHdr'), lbl = document.getElementById('monthLbl');
+  const mKeys = [...m.keys()].sort((a,b)=>a-b);
+  if (!mKeys.length){
+    CHART = null;
+    const dpr0 = window.devicePixelRatio || 1, W0 = cv.clientWidth || 284, H0 = 74;
+    cv.width = W0*dpr0; cv.height = H0*dpr0; cv.style.height = H0+'px';
+    cv.getContext('2d').clearRect(0, 0, cv.width, cv.height);
+    if (lbl) lbl.textContent = '—';
+    if (hdr) hdr.textContent = 'Kilometry w czasie';
+    return;
+  }
+  const spanMonths = mKeys[mKeys.length-1] - mKeys[0] + 1;
+  const yearly = spanMonths > 36;   // >3 lata → agreguj rocznie, by słupki były czytelne
+
+  // zbuduj ciągłą tablicę słupków (bez luk); from/to = zakres czasu słupka (do izolacji na mapie)
+  const bars = [];
+  if (yearly){
+    const y0 = Math.floor(mKeys[0]/12), y1 = Math.floor(mKeys[mKeys.length-1]/12);
+    const ym = new Map();
+    for (const [k,v] of m){ const y = Math.floor(k/12); ym.set(y, (ym.get(y)||0)+v); }
+    for (let y=y0; y<=y1; y++)
+      bars.push({ label:String(y), short:"'"+String(y).slice(2), v: ym.get(y)||0, key:'y'+y,
+                  from: new Date(y,0,1).getTime(), to: new Date(y+1,0,1).getTime()-1 });
+    if (hdr) hdr.textContent = 'Kilometry rocznie';
+  } else {
+    for (let k=mKeys[0]; k<=mKeys[mKeys.length-1]; k++){
+      const y = Math.floor(k/12), mo = ((k%12)+12)%12;
+      bars.push({ label:monthLabel(k), short:monthLabel(k), v: m.get(k)||0, key:'m'+k,
+                  from: new Date(y,mo,1).getTime(), to: new Date(y,mo+1,1).getTime()-1 });
+    }
+    if (hdr) hdr.textContent = 'Kilometry miesiącami';
+  }
+  let maxV = 0, maxLabel = ''; for (const b of bars) if (b.v>maxV){ maxV=b.v; maxLabel=b.label; }
+  CHART = { bars, yearly, maxV, maxLabel };
+  paintMonthChart();
+}
+
+function paintMonthChart(){
+  const cv = document.getElementById('monthChart'); if (!cv || !CHART) return;
+  const { bars, yearly, maxV, maxLabel } = CHART;
+  const lbl = document.getElementById('monthLbl');
+  const dpr = window.devicePixelRatio || 1;
+  const W = cv.clientWidth || 284, H = 74;
+  cv.width = W*dpr; cv.height = H*dpr; cv.style.height = H+'px';
+  const ctx = cv.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,W,H);
+  const selKey = (recordShown === 'period' && RECORD.period) ? RECORD.period.key : null;
+  const bw = (W - AX_W)/bars.length, botLbl = 12, plotH = H - botLbl - 2;
+  ctx.font = '9px -apple-system,Segoe UI,sans-serif';
+
+  // oś Y: linie siatki dla maks. i połowy maks. (rysowane pod słupkami)
+  if (maxV > 0){
+    const axLbl = v => v >= 1000 ? Math.round(v/1000)+'k' : String(Math.round(v));
+    ctx.textBaseline = 'middle'; ctx.textAlign = 'right';
+    for (const frac of [1, 0.5]){
+      const y = Math.round(plotH - frac*plotH + 2) + 0.5;
+      ctx.strokeStyle = '#2a303b'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(AX_W, y); ctx.lineTo(W, y); ctx.stroke();
+      ctx.fillStyle = '#6b7482';
+      ctx.fillText(axLbl(maxV*frac), AX_W-4, Math.max(5, y));
+    }
+  }
+
+  for (let i=0;i<bars.length;i++){
+    const h = maxV>0 ? (bars[i].v/maxV)*plotH : 0;
+    ctx.fillStyle = bars[i].key === selKey ? '#ffffff' : (bars[i].v>0 ? '#ff7a1a' : '#20242d');
+    ctx.fillRect(AX_W + i*bw + 0.5, plotH - h + 2, Math.max(1, bw-1), Math.max(bars[i].v>0?1:0, h));
+  }
+  ctx.textBaseline = 'top';
+  if (yearly && bars.length <= 16){
+    // podpisz każdy rok, jeśli się mieszczą
+    ctx.textAlign = 'center';
+    for (let i=0;i<bars.length;i++){
+      ctx.fillStyle = bars[i].key === selKey ? '#e7ebf0' : '#6b7482';
+      ctx.fillText(bars[i].short, AX_W + i*bw + bw/2, plotH+3);
+    }
+  } else {
+    ctx.fillStyle = '#6b7482';
+    ctx.textAlign = 'left';  ctx.fillText(bars[0].label, AX_W+1, plotH+3);
+    ctx.textAlign = 'right'; ctx.fillText(bars[bars.length-1].label, W-1, plotH+3);
+  }
+  if (lbl){
+    const sel = selKey ? bars.find(b => b.key === selKey) : null;
+    lbl.textContent = sel
+      ? sel.label + ': ' + fmtKm(sel.v*1000) + ' — na mapie tylko ten okres. Kliknij ponownie, aby wrócić.'
+      : (yearly ? 'Najwięcej w roku: ' : 'Najwięcej w miesiącu: ') + fmtKm(maxV*1000)
+        + (maxLabel ? ' (' + maxLabel + ').' : '.') + ' Kliknij słupek, aby zobaczyć ten okres na mapie.';
+  }
+}
+
+// Klik w słupek → na mapie tylko ten rok/miesiąc; klik w ten sam słupek → powrót
+function toggleChartBar(i){
+  const b = CHART && CHART.bars[i];
+  if (!b || !(b.v > 0)) return;
+  if (recordShown === 'period' && RECORD.period && RECORD.period.key === b.key){ exitRecordView(true); return; }
+  RECORD.period = { from:b.from, to:b.to, modes:new Set(visibleModes), key:b.key, label:b.label };
+  toggleRecord('period', true);
+}
+
+// ---------- Rysowanie pomiaru na mapie ----------
+const GEO = { diam:null, conn:null, ext:null };
+let measureShown = null;                         // 'diam' | 'conn' | null
+const measureLayer = L.layerGroup().addTo(map);
+const poiLayer = L.layerGroup().addTo(map);
+function showPoint(p, label){
+  poiLayer.clearLayers();
+  if (!p) return;
+  const mk = L.circleMarker(p, { radius:6, color:'#ff7a1a', fillColor:'#ff7a1a', fillOpacity:.9, weight:2 });
+  mk.bindTooltip(label, { permanent:true, direction:'top', className:'measure-tip' });
+  poiLayer.addLayer(mk);
+  map.flyTo(p, Math.max(map.getZoom(), 9), { duration:.6 });
+}
+// ---------- Izolacja rekordu (najdłuższa podróż / najwięcej w 1 dzień) na mapie ----------
+const RECORD = { trip:null, day:null, period:null };   // {from, to, modes:Set} — trip/day z updateStats(), period z klikniętego słupka
+let recordShown = null;                   // 'trip' | 'day' | 'period' | null
+let recordPrevView = null;                // { center, zoom } widoku sprzed kliknięcia rekordu
+function toggleRecord(kind, force){       // force = wejdź w nowy okres bez przełączania w tryb wyjścia
+  stopTimelapse(false);
+  const rec = RECORD[kind];
+  if (recordShown === kind && !force){ exitRecordView(true); return; }
+  if (!rec) return;
+  if (!recordShown) recordPrevView = { center: map.getCenter(), zoom: map.getZoom() };
+  recordShown = kind;
+  document.getElementById('statTrip').classList.toggle('active', kind==='trip');
+  document.getElementById('statDay').classList.toggle('active', kind==='day');
+  document.getElementById('qTrip').classList.toggle('active', kind==='trip');
+  heat.setFilter({ from: rec.from, to: rec.to, modes: rec.modes });
+  let minLat=Infinity,minLng=Infinity,maxLat=-Infinity,maxLng=-Infinity;
+  for (const s of SEGMENTS){
+    if (s.t < rec.from || s.t > rec.to) continue;
+    if (rec.modes && !rec.modes.has(s.mode)) continue;
+    if (s.b[0]<minLat)minLat=s.b[0]; if (s.b[2]>maxLat)maxLat=s.b[2];
+    if (s.b[1]<minLng)minLng=s.b[1]; if (s.b[3]>maxLng)maxLng=s.b[3];
+  }
+  if (minLat!==Infinity) map.fitBounds([[minLat,minLng],[maxLat,maxLng]], { padding:[50,50], maxZoom:12 });
+  updateStats();      // statystyki opisują teraz tylko wyizolowany okres
+  scheduleGeo();
+  paintMonthChart();
+}
+function exitRecordView(restoreView){
+  if (!recordShown) return;
+  recordShown = null;
+  RECORD.period = null;
+  document.getElementById('statTrip').classList.remove('active');
+  document.getElementById('statDay').classList.remove('active');
+  document.getElementById('qTrip').classList.remove('active');
+  const r = currentRange();
+  heat.setFilter({ from:r.from, to:r.to, modes:new Set(visibleModes) });
+  if (restoreView && recordPrevView) map.setView(recordPrevView.center, recordPrevView.zoom, { animate:true });
+  recordPrevView = null;
+  updateStats(r);     // powrót statystyk do pełnego zakresu z suwaków
+  scheduleGeo();
+  paintMonthChart();
+}
+function toggleMeasure(kind){
+  measureShown = (measureShown === kind) ? null : kind;
+  refreshMeasure();
+  document.getElementById('statDiam').classList.toggle('active', measureShown==='diam');
+  document.getElementById('statConn').classList.toggle('active', measureShown==='conn');
+  const g = GEO[kind];
+  if (measureShown && g && g.a && g.b) map.fitBounds([g.a, g.b], { padding:[60,60], maxZoom:12 });
+}
+function refreshMeasure(){
+  measureLayer.clearLayers();
+  if (!measureShown) return;
+  const g = GEO[measureShown];
+  if (!g || !g.a || !g.b) return;
+  const color = measureShown==='diam' ? '#ffffff' : '#ffd60a';
+  const line = L.polyline([g.a, g.b], { color, weight:2, dashArray:'6 7', opacity:0.95 });
+  line.bindTooltip(fmtKm(g.km*1000) + ' w linii prostej',
+                   { permanent:true, direction:'center', className:'measure-tip', offset:[0,0] });
+  measureLayer.addLayer(line);
+  for (const p of [g.a, g.b])
+    measureLayer.addLayer(L.circleMarker(p, { radius:5, color, fillColor:color, fillOpacity:1, weight:1.5 }));
+}
+
+function initDateSliders(){
+  const from = document.getElementById('dFrom'), to = document.getElementById('dTo');
+  const dtFrom = document.getElementById('dtFrom'), dtTo = document.getElementById('dtTo');
+  if (DATA_MIN == null){
+    from.max = to.max = 0; from.value = to.value = 0;
+    dtFrom.value = dtTo.value = ''; dtFrom.min = dtTo.min = dtFrom.max = dtTo.max = '';
+    setDateLabels(); return;
+  }
+  const days = Math.max(0, Math.round((DATA_MAX - DATA_MIN)/DAY));
+  from.max = to.max = days;
+  from.value = 0; to.value = days;
+  dtFrom.min = dtTo.min = fmtDate(DATA_MIN);          // kalendarz ograniczony do posiadanych danych
+  dtFrom.max = dtTo.max = fmtDate(DATA_MIN + days*DAY);
+  setDateLabels();
+}
+function setDateLabels(){
+  const dtFrom = document.getElementById('dtFrom'), dtTo = document.getElementById('dtTo');
+  if (DATA_MIN == null){ dtFrom.value = ''; dtTo.value = ''; return; }
+  dtFrom.value = fmtDate(DATA_MIN + (+document.getElementById('dFrom').value)*DAY);
+  dtTo.value   = fmtDate(DATA_MIN + (+document.getElementById('dTo').value)*DAY);
+}
+// odwrotność etykiety suwaka: 'RRRR-MM-DD' -> pozycja suwaka (numer doby od początku danych)
+function dayIndexFromDateStr(str){
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(str || '');
+  if (!m || DATA_MIN == null) return null;
+  const target = new Date(+m[1], +m[2]-1, +m[3]).getTime();
+  if (!Number.isFinite(target)) return null;
+  const days = +document.getElementById('dFrom').max;
+  return Math.max(0, Math.min(days, Math.round((target - dayStart(DATA_MIN)) / DAY)));
+}
+
+function updateStats(r){
+  r = r || activeRange();
+  const inRange = t => !Number.isFinite(t) || (t >= r.from && t <= r.to);
+  // dystans wg trybu
+  const dist = {}, spDur = {};                                    // dystans / trwanie (ms) wg trybu
+  for (const m of MODES){ dist[m.k] = 0; spDur[m.k] = 0; }
+  let trips = 0, total = 0, haveActivities = ACTIVITIES.length > 0;
+  let longTrip = 0;                                               // najdłuższa pojedyncza podróż (m)
+  let longTripT = null, longTripTe = null, longTripMode = null;   // zakres czasu + tryb rekordowej podróży
+  const dayKm = new Map(), monthKm = new Map();                   // dzień/miesiąc -> km
+  const addKm = (t, km) => {
+    if (Number.isFinite(t)){
+      const di = dayIndex(t); dayKm.set(di, (dayKm.get(di)||0) + km);
+      const mk = monthKey(t);  monthKm.set(mk, (monthKm.get(mk)||0) + km);
+    }
+  };
+  for (const a of ACTIVITIES){
+    if (!inRange(a.t)) continue;
+    if (!visibleModes.has(a.mode)) continue;
+    dist[a.mode] += a.dist; total += a.dist; trips++;
+    if (a.dist > longTrip){ longTrip = a.dist; longTripT = a.t; longTripTe = a.te; longTripMode = a.mode; }
+    const dur = a.te - a.t; if (dur > 0) spDur[a.mode] += dur;
+    addKm(a.t, a.dist/1000);
+  }
+  if (!haveActivities){ // fallback: dystans z geometrii tras
+    for (const s of SEGMENTS){
+      if (!inRange(s.t) || !visibleModes.has(s.mode)) continue;
+      total += s.gd*1000;
+      if (s.gd*1000 > longTrip){ longTrip = s.gd*1000; longTripT = s.t; longTripTe = s.te; longTripMode = s.mode; }
+      addKm(s.t, s.gd);
+    }
+  }
+  // aktywne dni (indeksy dób lokalnych — do liczby i najdłuższej serii)
+  const days = new Set();
+  for (const s of SEGMENTS){ if (inRange(s.t) && visibleModes.has(s.mode) && Number.isFinite(s.t)) days.add(dayIndex(s.t)); }
+  // wizyty
+  let home=0, work=0;
+  for (const v of VISITS){ if (!inRange(v.t)) continue; if (v.type==='home') home++; else if (v.type==='work') work++; }
+
+  document.getElementById('stDist').textContent = fmtKm(total);
+  document.getElementById('stTrips').textContent = trips.toLocaleString('pl-PL');
+  document.getElementById('stDays').textContent  = days.size.toLocaleString('pl-PL');
+  document.getElementById('stHome').textContent  = home.toLocaleString('pl-PL');
+  document.getElementById('stWork').textContent  = work.toLocaleString('pl-PL');
+  document.getElementById('stDistLbl').textContent = haveActivities ? 'łączny dystans (wybrany okres)' : 'dystans z geometrii tras';
+
+  for (const m of MODES){
+    const el = document.getElementById('km-'+m.k);
+    if (el) el.textContent = haveActivities ? fmtKm(dist[m.k]) : '';
+  }
+
+  // --- Rekordy ---
+  const rTripTxt = longTrip > 0 ? fmtKm(longTrip) : '—';
+  document.getElementById('rTrip').textContent = rTripTxt;
+  document.getElementById('qTripVal').textContent = rTripTxt;
+  RECORD.trip = (longTrip > 0 && longTripT != null)
+    ? { from: longTripT, to: Number.isFinite(longTripTe) ? longTripTe : longTripT, modes: new Set([longTripMode]) }
+    : null;
+  let bestDayKm = 0, bestDayIdx = null;
+  for (const [di, km] of dayKm) if (km > bestDayKm){ bestDayKm = km; bestDayIdx = di; }
+  const rDay = document.getElementById('rDay');
+  rDay.textContent = bestDayKm > 0 ? fmtKm(bestDayKm*1000) : '—';
+  rDay.title = bestDayIdx != null ? fmtDate(bestDayIdx*DAY) : '';
+  RECORD.day = (bestDayKm > 0 && bestDayIdx != null)
+    ? { from: bestDayIdx*DAY, to: (bestDayIdx+1)*DAY - 1, modes: new Set(visibleModes) }
+    : null;
+  if (recordShown && !RECORD[recordShown]) exitRecordView(false);   // rekord zniknął po zmianie filtrów
+  document.getElementById('statTrip').classList.toggle('clickable', !!RECORD.trip);
+  document.getElementById('statDay').classList.toggle('clickable', !!RECORD.day);
+  document.getElementById('qTrip').classList.toggle('clickable', !!RECORD.trip);
+  const streak = longestStreak(days);
+  document.getElementById('rStreak').textContent = streak > 0 ? streak.toLocaleString('pl-PL')+' dni' : '—';
+  let bestMonthKm = 0, bestMonthK = null;
+  for (const [mk, km] of monthKm) if (km > bestMonthKm){ bestMonthKm = km; bestMonthK = mk; }
+  const rMonth = document.getElementById('rMonth');
+  rMonth.textContent = bestMonthK != null ? monthLabel(bestMonthK) : '—';
+  rMonth.title = bestMonthK != null ? fmtKm(bestMonthKm*1000) : '';
+
+  // --- Prędkości wg trybu ---
+  const spHost = document.getElementById('speedRows');
+  spHost.innerHTML = '';
+  let anySpeed = false;
+  for (const m of MODES){
+    if (!(spDur[m.k] > 0 && dist[m.k] > 0) || !visibleModes.has(m.k)) continue;
+    anySpeed = true;
+    const kmh = (dist[m.k]/1000) / (spDur[m.k]/3600000);
+    const row = document.createElement('div');
+    row.className = 'spanStat';
+    row.innerHTML = `<span><span class="spdDot" style="background:${m.c}"></span>${m.name}</span>`
+                  + `<b>${kmh.toFixed(0)} km/h</b>`;
+    spHost.appendChild(row);
+  }
+  if (!anySpeed) spHost.innerHTML = '<div class="metaLine">Brak danych o czasie podróży.</div>';
+
+  // --- Dla zabawy (ekwiwalenty) ---
+  const km = total/1000;
+  document.getElementById('funPL').textContent   = km > 0 ? (km/3511).toFixed(1)+'×' : '—';
+  document.getElementById('funEq').textContent   = km > 0 ? (km/40075).toFixed(2)+'×' : '—';
+  document.getElementById('funMoon').textContent = km > 0 ? (km/384400*100).toFixed(2)+'%' : '—';
+  const co2t = (dist.car/1000) * 0.12 / 1000;   // ~0,12 kg CO₂/km, w tonach
+  document.getElementById('funCO2').textContent = dist.car > 0
+    ? (co2t >= 1 ? co2t.toFixed(1)+' t' : Math.round(co2t*1000).toLocaleString('pl-PL')+' kg') : '—';
+
+  document.getElementById('sSeg').textContent   = SEGMENTS.length.toLocaleString('pl-PL');
+  document.getElementById('sPts').textContent   = TOTAL_PTS.toLocaleString('pl-PL');
+  document.getElementById('sFiles').textContent = FILES.toLocaleString('pl-PL');
+  document.getElementById('sFmt').textContent   = FORMATS.size ? [...FORMATS].join(', ') : '—';
+  document.getElementById('stRange').textContent = DATA_MIN!=null ? (fmtDate(DATA_MIN)+' → '+fmtDate(DATA_MAX)) : '—';
+}
+
+function buildModeRows(){
+  const host = document.getElementById('modes');
+  host.innerHTML = '';
+  for (const m of MODES){
+    const row = document.createElement('label');
+    row.className = 'modeRow';
+    row.innerHTML =
+      `<input type="checkbox" data-mode="${m.k}" ${visibleModes.has(m.k)?'checked':''}>` +
+      `<span class="sw" style="background:${m.c}"></span>` +
+      `<span class="mName">${m.name}</span>` +
+      `<span class="mKm" id="km-${m.k}"></span>`;
+    const cb = row.querySelector('input');
+    cb.addEventListener('change', () => {
+      if (cb.checked) visibleModes.add(m.k); else visibleModes.delete(m.k);
+      row.classList.toggle('off', !cb.checked);
+      applyFilter();
+    });
+    row.classList.toggle('off', !visibleModes.has(m.k));
+    host.appendChild(row);
+  }
+}
+
+// ---------- Eksport PNG ----------
+function exportPNG(){
+  busy(true, 'Generowanie PNG…');
+  setTimeout(() => {
+    try {
+      const size = map.getSize();
+      const bg = curBasemap === 'light' ? '#e9ecef' : '#0d0f13';
+      const cont = map.getContainer(), crect = cont.getBoundingClientRect();
+      const S = Math.max(2, renderScale());   // ślad rysowany od nowa w tej skali, nie skalowany z ekranu
+
+      const build = (withTiles) => {
+        const out = document.createElement('canvas');
+        out.width = Math.round(size.x*S); out.height = Math.round(size.y*S);
+        const o = out.getContext('2d');
+        o.fillStyle = withTiles && curBasemap==='none' ? '#000' : bg;
+        o.fillRect(0,0,out.width,out.height);
+        if (withTiles && baseLayer){
+          cont.querySelectorAll('img.leaflet-tile-loaded').forEach(img => {
+            const rr = img.getBoundingClientRect();
+            o.drawImage(img, (rr.left-crect.left)*S, (rr.top-crect.top)*S, rr.width*S, rr.height*S);
+          });
+        }
+        o.setTransform(S,0,0,S,0,0);
+        heat._paint(o);
+        return out;
+      };
+
+      // blob zamiast data URL — w skali 2× obraz bywa kilkudziesięciomegabajtowy
+      const toBlob = (cv) => new Promise((res, rej) =>
+        cv.toBlob(b => b ? res(b) : rej(new Error('pusty obraz')), 'image/png'));
+      // toBlob rzuca SecurityError wewnątrz konstruktora Promise, więc fallback musi wisieć na .catch
+      toBlob(build(true))                          // pełny: kafelki + ślad
+        .catch(() => toBlob(build(false)))         // fallback bez kafelków (kafelki bez CORS)
+        .then(blob => {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url; a.download = 'heatmapa.png'; a.click();
+          setTimeout(() => URL.revokeObjectURL(url), 10000);
+        })
+        .catch(e => { console.error(e); alert('Nie udało się wyeksportować obrazu: ' + e.message); })
+        .then(() => busy(false));
+      return;
+    } catch (e){
+      console.error(e);
+      alert('Nie udało się wyeksportować obrazu: ' + e.message);
+    }
+    busy(false);
+  }, 60);
+}
+
+// ---------- UI ----------
+const $ = id => document.getElementById(id);
+const fileInput = $('file'), drop = $('drop');
+
+fileInput.addEventListener('change', e => { handleFiles(e.target.files); fileInput.value=''; });
+['dragenter','dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); e.stopPropagation(); drop.classList.add('over'); }));
+['dragleave','drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); e.stopPropagation(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', e => handleFiles(e.dataTransfer.files));
+['dragover','drop'].forEach(ev => window.addEventListener(ev, e => e.preventDefault()));
+window.addEventListener('drop', e => { if (e.dataTransfer && e.dataTransfer.files.length) handleFiles(e.dataTransfer.files); });
+let resizeTimer = null;
+window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(syncPanelHeight, 120); });
+
+// Panel zwijany na telefonie — inaczej zasłania prawie całą mapę.
+function isNarrow(){ return window.matchMedia('(max-width: 680px)').matches; }
+function setPanelOpen(open){
+  document.body.classList.toggle('panelHidden', !open);
+  const b = $('panelToggle');
+  b.textContent = open ? 'Zamknij' : 'Ustawienia';
+  b.setAttribute('aria-expanded', String(open));
+  if (open) syncPanelHeight();
+}
+$('panelToggle').addEventListener('click', () => setPanelOpen(document.body.classList.contains('panelHidden')));
+setPanelOpen(true);
+
+// ---------- Tryby wyglądu śladu ----------
+// Heatmapa: additywne, ledwo widoczne linie na ciemnym tle — nakładanie rozjaśnia aż do bieli (styl Stravy).
+// Jednolite linie: zwykłe krycie na jasnym tle — nakładanie nasyca kolor, ale nigdy nie bieleje,
+// więc pojedynczy przejazd i sto przejazdów mają tę samą grubość (styl StatsHunters).
+const STYLE_MODES = {
+  heat:  { color:'#ff7a1a', opacity:0.14, weight:1.6, additive:true,  basemap:'dark',
+           opLbl:'Jasność linii',
+           hint:'Nakładające się trasy rozjaśniają się — widać, którędy jeździsz najczęściej.' },
+  lines: { color:'#ff1f1f', opacity:0.45, weight:2.2, additive:false, basemap:'light',
+           opLbl:'Krycie linii',
+           hint:'Każda trasa tą samą grubością, bez świecenia — liczy się zasięg, nie częstotliwość.' },
+};
+let styleMode = 'heat';
+// keepBasemap — przy starcie, żeby nie przeładowywać kafelków ustawionych już przez setBasemap()
+function applyStyleMode(key, keepBasemap){
+  const p = STYLE_MODES[key]; if (!p) return;
+  styleMode = key;
+  heat.setStyle({ color:p.color, opacity:p.opacity, weight:p.weight, additive:p.additive });
+  $('styleMode').value = key;
+  $('color').value   = p.color;
+  $('opacity').value = p.opacity; $('opVal').textContent = p.opacity.toFixed(2);
+  $('weight').value  = p.weight;  $('wVal').textContent  = p.weight.toFixed(1);
+  $('opLbl').textContent   = p.opLbl;
+  $('styleHint').textContent = p.hint;
+  if (!keepBasemap && curBasemap !== p.basemap){ setBasemap(p.basemap); $('basemap').value = p.basemap; }
+}
+$('styleMode').addEventListener('change', e => applyStyleMode(e.target.value));
+// suwaki zapisują się do presetu aktywnego trybu — powrót do trybu przywraca własne ustawienia,
+// a nie fabryczne
+$('color').addEventListener('input',   e => { STYLE_MODES[styleMode].color = e.target.value; heat.setStyle({ color: e.target.value }); });
+$('opacity').addEventListener('input', e => { const v = +e.target.value; STYLE_MODES[styleMode].opacity = v;
+                                              $('opVal').textContent = v.toFixed(2); heat.setStyle({ opacity:v }); });
+$('weight').addEventListener('input',  e => { const v = +e.target.value; STYLE_MODES[styleMode].weight = v;
+                                              $('wVal').textContent = v.toFixed(1);  heat.setStyle({ weight:v }); });
+$('colorByMode').addEventListener('change', e => heat.setColorByMode(e.target.checked));
+$('basemap').addEventListener('change', e => { setBasemap(e.target.value); STYLE_MODES[styleMode].basemap = e.target.value; });
+applyStyleMode('heat', true);
+$('showCountries').addEventListener('change', e => {
+  countryShow = e.target.checked;
+  if (countryShow){
+    loadCountries().then(() => { renderCountryLayer(); refreshCountryStyles(); })
+                   .catch(() => { $('showCountries').checked = false; countryShow = false;
+                                  alert('Nie udało się pobrać granic krajów (brak internetu?).'); });
+  } else renderCountryLayer();
+});
+$('fit').addEventListener('click', fitToData);
+$('png').addEventListener('click', exportPNG);
+$('clear').addEventListener('click', clearAll);
+$('cacheClear').addEventListener('click', async () => {
+  try {
+    const db = await idbOpen();
+    try { await idbRun(db, 'readwrite', st => st.clear()); } finally { db.close(); }
+    cacheNote('Pamięć podręczna wyczyszczona.');
+  } catch (e){ console.warn(e); cacheNote('Nie udało się wyczyścić pamięci podręcznej.'); }
+});
+
+$('dFrom').addEventListener('input', () => {
+  const from = $('dFrom'), to = $('dTo');
+  if (+from.value > +to.value) to.value = from.value;
+  setDateLabels(); applyFilter();
+});
+$('dTo').addEventListener('input', () => {
+  const from = $('dFrom'), to = $('dTo');
+  if (+to.value < +from.value) from.value = to.value;
+  setDateLabels(); applyFilter();
+});
+$('dtFrom').addEventListener('change', () => {
+  const i = dayIndexFromDateStr($('dtFrom').value);
+  if (i == null){ setDateLabels(); return; }            // pusta/niepełna data — przywróć poprzednią
+  $('dFrom').value = String(i);
+  if (+$('dTo').value < i) $('dTo').value = String(i);
+  setDateLabels(); applyFilter();
+});
+$('dtTo').addEventListener('change', () => {
+  const i = dayIndexFromDateStr($('dtTo').value);
+  if (i == null){ setDateLabels(); return; }
+  $('dTo').value = String(i);
+  if (+$('dFrom').value > i) $('dFrom').value = String(i);
+  setDateLabels(); applyFilter();
+});
+$('resetDates').addEventListener('click', () => { initDateSliders(); applyFilter(); });
+$('tlPlay').addEventListener('click', () => { if (TL) stopTimelapse(true); else startTimelapse(); });
+$('statDiam').addEventListener('click', () => toggleMeasure('diam'));
+$('statConn').addEventListener('click', () => toggleMeasure('conn'));
+$('statTrip').addEventListener('click', () => toggleRecord('trip'));
+$('statDay').addEventListener('click', () => toggleRecord('day'));
+$('qTrip').addEventListener('click', () => toggleRecord('trip'));
+$('monthChart').addEventListener('click', (e) => {
+  if (!CHART) return;
+  const rect = e.currentTarget.getBoundingClientRect();
+  const plotW = rect.width - AX_W;
+  if (plotW <= 0) return;
+  const x = e.clientX - rect.left - AX_W;
+  if (x < 0) return;                       // kliknięcie w oś, nie w słupek
+  const i = Math.floor(x / (plotW / CHART.bars.length));
+  toggleChartBar(Math.max(0, Math.min(CHART.bars.length - 1, i)));
+});
+
+const EXT_POI = [
+  ['gxN','n','Najdalej na północ'], ['gxS','s','Najdalej na południe'],
+  ['gxE','e','Najdalej na wschód'], ['gxW','w','Najdalej na zachód'],
+  ['gxC','centroid','Środek ciężkości'],
+];
+for (const [id, key, label] of EXT_POI){
+  $(id).addEventListener('click', () => {
+    const p = GEO.ext && GEO.ext[key];
+    if (p) showPoint(p, label);
+  });
+}
+</script>
+</body>
+</html>
