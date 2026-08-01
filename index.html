@@ -24,10 +24,14 @@
   #panel h1 { font-size:15px; margin:0 0 2px; letter-spacing:.2px; }
   #panel .sub { font-size:11px; color:var(--muted); margin-bottom:12px; }
 
+  /* to <label>, więc bez display:block zwija się do szerokości tekstu zamiast zająć panel */
   .drop {
+    display:block;
     border:1.5px dashed #3a4150; border-radius:10px; padding:16px 12px; text-align:center;
     cursor:pointer; transition:.15s; background:var(--panel2); font-size:13px; color:var(--muted);
   }
+  /* główne wejście dla kogoś, kto nie ma jeszcze pliku — nie może być drobnym linkiem */
+  #demo { width:100%; margin-top:8px; }
   .drop:hover, .drop.over { border-color:var(--accent); color:var(--txt); background:#232833; }
   .drop b { color:var(--txt); }
   input[type=file]{ display:none; }
@@ -201,6 +205,7 @@
     <span style="font-size:11px">plik(i) .json lub .zip z Google Takeout</span>
     <input type="file" id="file" accept=".json,.zip" multiple />
   </label>
+  <button id="demo">Nie masz pliku? Zobacz przykład</button>
 
   <label class="modeRow" id="rememberRow">
     <input type="checkbox" id="remember">
@@ -829,6 +834,7 @@ let ACTIVITIES = [];   // {t, te, mode, dist(m)}  — do statystyk i przypisania
 let VISITS = [];       // {t, type: 'home'|'work'|'other'}
 let PATHREFS = [];     // referencje do segmentów-tras czekających na przypisanie trybu
 let TOTAL_PTS = 0, FILES = 0;
+let DEMO = false;      // czy na mapie leżą dane przykładowe, a nie wczytane przez użytkownika
 const FORMATS = new Set();
 let DATA_MIN = null, DATA_MAX = null;   // ms (początek/koniec doby)
 
@@ -1054,6 +1060,201 @@ function resolveModes(){
   }
 }
 
+// ---------- Dane przykładowe ----------
+// Generowane w locie, a nie doklejone jako plik: aplikacja ma zostać jednym plikiem HTML,
+// a zestaw gęsty na tyle, żeby heatmapa wyglądała jak prawdziwa, ważyłby kilka megabajtów.
+// Generator jest deterministyczny (własny PRNG), więc każdy widzi dokładnie ten sam przykład.
+// To dane WYMYŚLONE — nie czyjaś prawdziwa historia lokalizacji.
+function buildDemo(){
+  let s = 20260801 >>> 0;
+  const rnd = () => { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 4294967296; };
+  const gauss = () => (rnd() + rnd() + rnd() - 1.5) / 1.5;
+
+  const HOME = [52.5200, 13.4050];                       // Berlin — punkt odniesienia przykładu
+  const LATK = 111.32, LNGK = 111.32 * Math.cos(HOME[0] * Math.PI/180);
+  const dLat = m => m / 1000 / LATK, dLng = m => m / 1000 / LNGK;
+  const toLL = (xkm, ykm) => [HOME[0] + ykm/LATK, HOME[1] + xkm/LNGK];
+
+  // Sieć ulic: przesunięta losowo siatka, więc nic nie jest idealnie proste ani równoległe.
+  // Regularna siatka z routingiem „najpierw w bok, potem w pion" składa się w prostokąty,
+  // a wyznaczanie zawsze najkrótszej trasy upycha wszystkie przejazdy na kilkunastu
+  // krawędziach — w obu przypadkach wychodzi rysunek techniczny, nie miasto.
+  const G = 19, SPACING = 0.62;                    // km między węzłami
+  const W = [];
+  for (let i = 0; i < G; i++)
+    for (let j = 0; j < G; j++){
+      // Siatka rozciągana od środka: w centrum ulice gęściej, na obrzeżach rzadziej,
+      // plus spore przesunięcie każdego węzła. Równe odstępy od razu zdradzają kratę.
+      const u = (j-(G-1)/2)/((G-1)/2), v = (i-(G-1)/2)/((G-1)/2);
+      const rozciag = q => Math.sign(q) * Math.pow(Math.abs(q), 1.35);
+      W.push({ x: rozciag(u)*SPACING*(G-1)/2 + gauss()*SPACING*0.46,
+               y: rozciag(v)*SPACING*(G-1)/2 + gauss()*SPACING*0.46 });
+    }
+  const n = W.length, idx = (i,j) => i*G + j;
+  const odl = (a, b) => Math.hypot(W[a].x-W[b].x, W[a].y-W[b].y);
+
+  const SAS = Array.from({length:n}, () => []);
+  const krawedz = (a, b) => { if (!SAS[a].includes(b)){ SAS[a].push(b); SAS[b].push(a); } };
+  for (let i = 0; i < G; i++)
+    for (let j = 0; j < G; j++){
+      // Część połączeń wycięta: pełna krata wygląda jak papier milimetrowy, a prawdziwe
+      // ulice się urywają, zakręcają i nie każda przecznica jest przejezdna.
+      if (j+1 < G && rnd() < 0.72) krawedz(idx(i,j), idx(i,j+1));
+      if (i+1 < G && rnd() < 0.72) krawedz(idx(i,j), idx(i+1,j));
+      if (i+1 < G && j+1 < G && rnd() < 0.26) krawedz(idx(i,j), idx(i+1,j+1));
+      if (i+1 < G && j > 0   && rnd() < 0.26) krawedz(idx(i,j), idx(i+1,j-1));
+    }
+  // Węzły odcięte od reszty zepsułyby trasę — dopnij każdy do najbliższego sąsiada.
+  for (let a = 0; a < n; a++){
+    if (SAS[a].length) continue;
+    let best = -1, bd = Infinity;
+    for (let b = 0; b < n; b++){ if (b === a) continue; const d = odl(a,b); if (d < bd){ bd = d; best = b; } }
+    if (best >= 0) krawedz(a, best);
+  }
+
+  // Wybór trasy zachłanny, ale z szumem: kolejne przejazdy tą samą relacją idą trochę innymi
+  // ulicami, tak jak w rzeczywistości. Dzięki temu powstaje pajęczyna z jasnymi korytarzami,
+  // a nie kilka wypalonych kresek.
+  const trasa = (a, b) => {
+    const pts = [];
+    let u = a, prev = -1, guard = 0;
+    const dodaj = (od, doo) => {
+      const kroki = Math.max(1, Math.round(odl(od, doo)*1000/150));
+      for (let q = 0; q < kroki; q++){
+        const f = q/kroki;
+        const p = toLL(W[od].x + (W[doo].x-W[od].x)*f, W[od].y + (W[doo].y-W[od].y)*f);
+        pts.push([p[0] + dLat(gauss()*10), p[1] + dLng(gauss()*10)]);
+      }
+    };
+    while (u !== b && guard++ < 400){
+      let best = -1, bs = Infinity;
+      for (const v of SAS[u]){
+        if (v === prev && SAS[u].length > 1) continue;      // nie zawracaj od razu
+        const s = Math.hypot(W[v].x-W[b].x, W[v].y-W[b].y) * (0.82 + rnd()*0.55);
+        if (s < bs){ bs = s; best = v; }
+      }
+      if (best < 0) break;
+      dodaj(u, best);
+      prev = u; u = best;
+    }
+    const p = toLL(W[b].x, W[b].y);
+    pts.push([p[0] + dLat(gauss()*10), p[1] + dLng(gauss()*10)]);
+    return pts;
+  };
+
+  const DAY = 86400000;
+  const START = Date.UTC(2023, 0, 2);
+  const trip = (pts, t, mode, durMin) => {
+    if (pts.length < 2) return;
+    const te = t + durMin*60000;
+    const seg = pushSeg(pts, t, mode, te);
+    if (seg) ACTIVITIES.push({ t, te, mode, dist: seg.gd*1000 });
+  };
+  const modeFor = km => km < 1.2 ? 'walk' : km < 4 ? (rnd() < 0.45 ? 'bike' : 'transit')
+                                                   : (rnd() < 0.7 ? 'car' : 'transit');
+  const dist = pts => { let d = 0; for (let i=1;i<pts.length;i++)
+    d += haversine(pts[i-1][0], pts[i-1][1], pts[i][0], pts[i][1]); return d; };
+
+  const DOM = idx(11, 8), PRACA = idx(6, 13);
+  // Kilka miejsc odwiedzanych stale (praca, szkoła, sklepy) plus szeroki ogon miejsc
+  // przypadkowych — bez tego ogona mapa ma korytarze, ale nie ma tkanki miasta.
+  const stale = [idx(12,12), idx(9,4), idx(14,9), idx(7,7), idx(10,15), idx(4,10)];
+  const cele = [];
+  for (let k = 0; k < 40; k++) cele.push(Math.floor(rnd()*n));
+
+  for (let d = 0; d < 960; d++){
+    const t0 = START + d*DAY;
+    const dzien = new Date(t0).getUTCDay();
+    const robocz = dzien >= 1 && dzien <= 5;
+    VISITS.push({ t: t0 + 7*3600000, type: 'home' });
+    if (robocz && rnd() < 0.88){
+      const rano = t0 + (7 + rnd()*1.5)*3600000;
+      const tam = trasa(DOM, PRACA);
+      const km = dist(tam);
+      trip(tam, rano, modeFor(km), 12 + km*3);
+      VISITS.push({ t: rano + 3600000, type: 'work' });
+      const wieczor = t0 + (16.5 + rnd()*2)*3600000;
+      trip(trasa(PRACA, DOM), wieczor, modeFor(km), 12 + km*3);
+    }
+    const sprawunki = robocz ? (rnd() < 0.55 ? 1 : 0) : 1 + Math.floor(rnd()*3);
+    for (let k = 0; k < sprawunki; k++){
+      // dwa razy częściej miejsce „swoje" niż przypadkowe — tak wygląda czyjś rozkład wyjść
+      const cel = rnd() < 0.55 ? stale[Math.floor(rnd()*stale.length)]
+                               : cele[Math.floor(rnd()*cele.length)];
+      const t1 = t0 + (10 + rnd()*9)*3600000;
+      const tam = trasa(DOM, cel), km = dist(tam);
+      trip(tam, t1, modeFor(km), 10 + km*4);
+      trip(trasa(cel, DOM), t1 + (1 + rnd()*2)*3600000, modeFor(km), 10 + km*4);
+    }
+  }
+
+  // Wyjazdy — pokazują listę odwiedzonych krajów i różnicę między jazdą a lotem
+  const WYJAZDY = [
+    { cel:[52.3700, 4.9000],  mode:'car',     razy:3 },   // Amsterdam
+    { cel:[50.0800, 14.4400], mode:'car',     razy:4 },   // Praga
+    { cel:[48.2100, 16.3700], mode:'transit', razy:3 },   // Wiedeń
+    { cel:[55.6800, 12.5700], mode:'car',     razy:2 },   // Kopenhaga
+    { cel:[48.8600, 2.3500],  mode:'transit', razy:2 },   // Paryż
+    { cel:[41.3900, 2.1700],  mode:'flight',  razy:2 },   // Barcelona
+    { cel:[41.9000, 12.5000], mode:'flight',  razy:2 },   // Rzym
+  ];
+  for (const w of WYJAZDY){
+    for (let r = 0; r < w.razy; r++){
+      const t1 = START + (60 + Math.floor(rnd()*860))*DAY + 8*3600000;
+      // Lot leci prosto, jazda wije się jak droga: łuk w bok plus drobne falowanie,
+      // żeby wyjazdy nie wyglądały jak promienie wystrzelone z jednego punktu.
+      const kroki = w.mode === 'flight' ? 14 : 90;
+      const luk = w.mode === 'flight' ? 0 : 0.10 + rnd()*0.10;
+      const znak = rnd() < 0.5 ? -1 : 1;
+      const start = toLL(W[DOM].x, W[DOM].y);
+      const buduj = (od, dokad) => {
+        const pts = [];
+        const dy = dokad[0]-od[0], dx = dokad[1]-od[1];
+        for (let q = 0; q <= kroki; q++){
+          const f = q/kroki, wyg = Math.sin(f*Math.PI)*luk*znak;
+          const fal = Math.sin(f*Math.PI*7)*luk*0.18;
+          pts.push([ od[0] + dy*f - (wyg+fal)*dx*0.5 + gauss()*0.004,
+                     od[1] + dx*f + (wyg+fal)*dy*0.5 + gauss()*0.004 ]);
+        }
+        return pts;
+      };
+      const tam = buduj(start, w.cel);
+      const godz = w.mode === 'flight' ? 2.2 : dist(tam)/85;
+      trip(tam, t1, w.mode, godz*60);
+      // kilka krótkich tras na miejscu, żeby kraj miał realny zasięg, a nie jeden punkt
+      const cLat = w.cel[0], cLng = w.cel[1];
+      const cLngK = 111.32 * Math.cos(cLat*Math.PI/180);
+      for (let k = 0; k < 14; k++){
+        const p0 = [cLat + (rnd()-0.5)*0.05, cLng + (rnd()-0.5)*0.07];
+        const pts = [p0];
+        for (let q = 0; q < 9; q++){
+          const last = pts[pts.length-1];
+          pts.push([ last[0] + (rnd()-0.5)*0.7/LATK, last[1] + (rnd()-0.5)*0.7/cLngK ]);
+        }
+        const tk = t1 + (6 + k*1.3 + rnd())*3600000;
+        trip(pts, tk, rnd() < 0.5 ? 'walk' : 'transit', 20 + rnd()*30);
+        VISITS.push({ t: tk, type: 'other' });
+      }
+      const powrot = buduj(w.cel, start);
+      trip(powrot, t1 + (2 + Math.floor(rnd()*4))*DAY, w.mode, godz*60);
+    }
+  }
+  FORMATS.add('dane przykładowe');
+}
+
+function loadDemo(){
+  busy(true, 'Buduję przykład…');
+  clearAll();
+  // odłożone o klatkę, żeby przeglądarka zdążyła pokazać komunikat przed liczeniem
+  setTimeout(() => {
+    buildDemo();
+    finalizeLoad();
+    DEMO = true;   // dane przykładowe nigdy nie trafiają do pamięci podręcznej — nie ma czego pamiętać
+    cacheNote('Dane przykładowe — wymyślone, nie są niczyją prawdziwą historią. ' +
+              'Wczytaj własny plik, żeby zobaczyć swoje trasy.');
+  }, 30);
+}
+
 // ---------- Wczytywanie plików ----------
 // ---------- Pamięć podręczna sparsowanych danych (IndexedDB) ----------
 // Parsowanie dużego eksportu trwa kilkanaście sekund, a wynik zależy wyłącznie od zawartości
@@ -1274,6 +1475,10 @@ async function cacheWipe(){
 async function handleFiles(fileList){
   const files = Array.from(fileList);
   if (!files.length) return;
+  // Wczytywanie kilku plików po kolei ma je sumować (Records + Semantic to osobne pliki),
+  // ale dane przykładowe muszą zniknąć — inaczej użytkownik zobaczyłby własne trasy
+  // wymieszane z wymyślonymi i taka mieszanka trafiłaby jeszcze do pamięci podręcznej.
+  if (DEMO) clearAll();
   busy(true, 'Wczytywanie plików…');
   cacheNote('');
   const key = cacheKey(files);
@@ -1387,6 +1592,7 @@ function clearAll(){
   stopTimelapse(false);
   SEGMENTS = []; ACTIVITIES = []; VISITS = []; PATHREFS = [];
   TOTAL_PTS = 0; FILES = 0; FORMATS.clear(); DATA_MIN = DATA_MAX = null;
+  DEMO = false;
   cacheNote('');
   heat.setSegments(SEGMENTS).setFilter(null);
   measureShown = null; measureLayer.clearLayers(); poiLayer.clearLayers();
@@ -2126,6 +2332,7 @@ $('cacheClear').addEventListener('click', async () => {
   } catch (e){ console.warn(e); cacheNote('Nie udało się usunąć zapamiętanych danych.'); }
   refreshPrivacy();
 });
+$('demo').addEventListener('click', loadDemo);
 $('privToggle').addEventListener('click', () => {
   const box = $('privDetails'), pokaz = box.hidden;
   box.hidden = !pokaz;
