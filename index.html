@@ -155,6 +155,27 @@
   #quickBar .qItem.clickable:hover { background:#20242e; }
   #quickBar .qItem.clickable.active b { color:var(--accent); }
   #quickBar .qItem.clickable.active { background:rgba(255,122,26,.12); }
+
+  /* Lista krajów wysuwana z dolnego paska. Osobny element, a nie kolejna kopia listy z panelu —
+     zawartość rysuje ta sama funkcja, tylko do innego pojemnika. */
+  #ccPop {
+    position:absolute; z-index:1001; width:270px; max-height:min(52vh, 420px);
+    display:flex; flex-direction:column;
+    background:rgba(23,26,33,.97); backdrop-filter:blur(8px); border:1px solid #2a2f3a;
+    border-radius:12px; box-shadow:0 12px 34px rgba(0,0,0,.55); overflow:hidden;
+  }
+  #ccPop .hdr {
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+    padding:9px 10px 7px; border-bottom:1px solid #262b35;
+    font-size:11px; text-transform:uppercase; letter-spacing:.6px; color:#6b7482;
+  }
+  #ccPop .hdr button {
+    flex:none; width:auto; min-width:0; padding:2px 6px; font-size:12px; line-height:1;
+    background:none; border:none; color:var(--muted);
+  }
+  #ccPop .hdr button:hover { color:var(--accent); border:none; }
+  #ccPopList { overflow-y:auto; overscroll-behavior:contain; padding:4px 10px 10px; }
+  #ccPopList .spanStat { padding:7px 0; }
   /* Przełącznik panelu — tylko na wąskich ekranach, w prawym górnym rogu
      (lewy górny zajmuje sterowanie zoomem Leafletu). */
   #panelToggle {
@@ -389,9 +410,14 @@
   <div class="qSep"></div>
   <div class="qItem clickable" id="qTrip"><b id="qTripVal">—</b><span data-i18n="q.longest"></span></div>
   <div class="qSep"></div>
-  <div class="qItem"><b id="gCountries">—</b><span data-i18n="q.countries"></span></div>
+  <div class="qItem" id="qCountries"><b id="gCountries">—</b><span data-i18n="q.countries"></span></div>
   <div class="qSep"></div>
   <div class="qItem"><b id="gArea">—</b><span data-i18n="q.area"></span></div>
+</div>
+
+<div id="ccPop" hidden>
+  <div class="hdr"><span data-i18n="sec.countries"></span><button id="ccPopClose" aria-label="Close">✕</button></div>
+  <div id="ccPopList"></div>
 </div>
 
 <div id="busy"><div class="box"><div class="spin"></div><div id="busyTxt"></div></div></div>
@@ -1065,10 +1091,11 @@ function detectCountries(cellSet){
   }
   VISITED_LIST.sort((x,y) => y.km2 - x.km2);
 }
-function renderCountryList(){
-  const host = document.getElementById('countryList'); if (!host) return;
+// Rysuje listę do wskazanego pojemnika — używa jej i panel, i wysuwka z dolnego paska,
+// żeby nie powstały dwie kopie tej samej logiki (i dwa miejsca do poprawiania).
+function fillCountryList(host, poKliknieciu){
+  if (!host) return;
   host.innerHTML = '';
-  document.getElementById('ccCount').textContent = VISITED_LIST.length ? t('cc.count', VISITED_LIST.length) : '';
   if (!VISITED_LIST.length){
     host.innerHTML = '<div class="metaLine">' + (COUNTRIES ? t('cc.none') : t('cc.loading')) + '</div>';
     return;
@@ -1083,9 +1110,45 @@ function renderCountryList(){
     row.addEventListener('click', () => {
       const b = c.bbox;
       map.fitBounds([[b[0],b[1]],[b[2],b[3]]], { padding:[40,40], maxZoom:10 });
+      if (poKliknieciu) poKliknieciu();
     });
     host.appendChild(row);
   }
+}
+function renderCountryList(){
+  document.getElementById('ccCount').textContent = VISITED_LIST.length ? t('cc.count', VISITED_LIST.length) : '';
+  fillCountryList(document.getElementById('countryList'));
+  const q = document.getElementById('qCountries');
+  if (q) q.classList.toggle('clickable', VISITED_LIST.length > 0);
+  if (ccPopOtwarty()) ccPopOtworz();      // odśwież treść, gdy wysuwka akurat jest na wierzchu
+}
+
+// ---------- Wysuwana lista krajów przy dolnym pasku ----------
+function ccPopOtwarty(){ return !document.getElementById('ccPop').hidden; }
+function ccPopZamknij(){
+  document.getElementById('ccPop').hidden = true;
+  document.getElementById('qCountries').classList.remove('active');
+}
+function ccPopOtworz(){
+  if (!VISITED_LIST.length) return;
+  const pop = document.getElementById('ccPop');
+  fillCountryList(document.getElementById('ccPopList'), ccPopZamknij);
+  pop.hidden = false;
+  document.getElementById('qCountries').classList.add('active');
+  ccPopUstaw();
+}
+// Kotwiczymy nad klikniętym elementem paska i trzymamy w granicach okna — pasek bywa
+// przewijany w poziomie na wąskich ekranach, więc pozycję liczymy z bieżącego układu.
+function ccPopUstaw(){
+  const pop = document.getElementById('ccPop'), q = document.getElementById('qCountries');
+  if (pop.hidden) return;
+  const r = q.getBoundingClientRect(), w = pop.offsetWidth, h = pop.offsetHeight;
+  let left = r.left + r.width/2 - w/2;
+  left = Math.max(10, Math.min(left, window.innerWidth - w - 10));
+  let top = r.top - h - 10;
+  if (top < 10) top = Math.min(r.bottom + 10, window.innerHeight - h - 10);
+  pop.style.left = Math.round(left) + 'px';
+  pop.style.top  = Math.round(top) + 'px';
 }
 function styleCountry(feat){
   const visited = VISITED_CC.has(ccKey(feat));
@@ -2030,6 +2093,7 @@ function clearAll(){
   DEMO = false;
   DUP_COUNT = 0; DUP_KM = 0; updateDupNote();
   DIAG = null; showLoadIssues();
+  ccPopZamknij();
   cacheNote('');
   heat.setSegments(SEGMENTS).setFilter(null);
   measureShown = null; measureLayer.clearLayers(); poiLayer.clearLayers();
@@ -2770,6 +2834,15 @@ $('cacheClear').addEventListener('click', async () => {
   refreshPrivacy();
 });
 $('demo').addEventListener('click', loadDemo);
+$('qCountries').addEventListener('click', e => {
+  e.stopPropagation();                       // inaczej domknęłoby ją zaraz nasłuch na dokumencie
+  if (ccPopOtwarty()) ccPopZamknij(); else ccPopOtworz();
+});
+$('ccPopClose').addEventListener('click', ccPopZamknij);
+$('ccPop').addEventListener('click', e => e.stopPropagation());
+document.addEventListener('click', () => { if (ccPopOtwarty()) ccPopZamknij(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && ccPopOtwarty()) ccPopZamknij(); });
+window.addEventListener('resize', ccPopUstaw);
 $('privToggle').addEventListener('click', () => {
   const box = $('privDetails'), pokaz = box.hidden;
   box.hidden = !pokaz;
