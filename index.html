@@ -62,6 +62,16 @@
     color:var(--muted); font-size:10.5px; text-decoration:underline; text-underline-offset:2px;
   }
   button.linkish:hover { color:var(--accent); border:none; }
+  /* Diagnostyka wczytywania — ma się rzucać w oczy, bo pojawia się tylko wtedy,
+     gdy coś poszło nie tak i użytkownik musi wiedzieć co. */
+  #loadIssues {
+    margin-top:10px; padding:10px 11px; border-radius:9px; font-size:11px; line-height:1.65;
+    background:#2a1d12; border:1px solid #5a3a1c; color:#e7c9a6;
+  }
+  #loadIssues.ok { background:#16241a; border-color:#2c4a33; color:#bcd9c4; }
+  #loadIssues b { color:#fff; }
+  #loadIssues ul { margin:6px 0 0; padding-left:16px; }
+  #loadIssues code { font-family:ui-monospace,Consolas,monospace; font-size:10.5px; color:#fff; }
   #privDetails p { margin:0 0 8px; }
   #privDetails b { color:var(--txt); }
 
@@ -226,6 +236,7 @@
     <span class="mName" data-i18n="remember.label"></span>
   </label>
   <div class="metaLine" id="cacheNote"></div>
+  <div id="loadIssues" hidden></div>
 
   <button id="privToggle" class="linkish" aria-expanded="false" aria-controls="privDetails"
           data-i18n="priv.toggle"></button>
@@ -495,6 +506,15 @@ const I18N = {
     'load.storeFail': 'Wczytano w {0} s. Nie udało się zapamiętać w tej przeglądarce.',
     'err.read': 'Błąd podczas wczytywania: {0}',
     'err.nozip': 'Biblioteka ZIP nie została załadowana (brak internetu?).',
+    'diag.failHdr': 'Nie udało się nic wczytać z tych plików.',
+    'diag.partialHdr': 'Mapa gotowa, ale część plików pominięto.',
+    'diag.foreign': 'Pominięte pliki o nieobsługiwanym rozszerzeniu (przyjmowane są .json i .zip):',
+    'diag.badJson': 'Pominięte pliki — to nie jest poprawny JSON:',
+    'diag.unknown': 'Pominięte pliki — poprawny JSON, ale bez znanych pól historii lokalizacji. W nawiasach pola najwyższego poziomu:',
+    'diag.emptyZip': 'W archiwum nie znaleziono żadnego pliku .json:',
+    'diag.recognisedEmpty': 'Format został rozpoznany, ale nie ma w nim ani jednego punktu ze współrzędnymi. Zdarza się, gdy eksport obejmuje okres bez zapisanej lokalizacji.',
+    'diag.nothing': 'Żaden z wczytanych plików nie wygląda na eksport historii lokalizacji Google.',
+    'diag.hint': 'Sprawdź instrukcję „Skąd wziąć dane?” wyżej. Aplikacja czyta wyłącznie JSON — eksport w formacie .csv nie zadziała.',
     'err.noRoutes': 'Nie znaleziono żadnych tras w tych plikach. Upewnij się, że to eksport historii lokalizacji Google.',
     'err.png': 'Nie udało się wyeksportować obrazu: {0}',
     'err.borders': 'Nie udało się pobrać granic krajów (brak internetu?).',
@@ -594,6 +614,15 @@ const I18N = {
     'load.storeFail': 'Loaded in {0} s. Could not remember it in this browser.',
     'err.read': 'Error while loading: {0}',
     'err.nozip': 'The ZIP library failed to load (no internet?).',
+    'diag.failHdr': 'Nothing could be loaded from these files.',
+    'diag.partialHdr': 'Map is ready, but some files were skipped.',
+    'diag.foreign': 'Skipped files with an unsupported extension (.json and .zip are accepted):',
+    'diag.badJson': 'Skipped files — not valid JSON:',
+    'diag.unknown': 'Skipped files — valid JSON, but without any known location-history fields. Top-level keys in brackets:',
+    'diag.emptyZip': 'No .json file was found inside the archive:',
+    'diag.recognisedEmpty': 'The format was recognised, but it contains no coordinates at all. This happens when the export covers a period with no recorded location.',
+    'diag.nothing': 'None of the loaded files looks like a Google location history export.',
+    'diag.hint': 'See “Where do I get the data?” above. This app reads JSON only — a .csv export will not work.',
     'err.noRoutes': 'No trips found in these files. Make sure this is a Google location history export.',
     'err.png': 'Could not export the image: {0}',
     'err.borders': 'Could not download country borders (no internet?).',
@@ -1158,18 +1187,37 @@ function parseLatLngStr(s){
 function e7(v){ return (typeof v === 'number') ? v/1e7 : NaN; }
 function tms(s){ const t = s ? Date.parse(s) : NaN; return Number.isFinite(t) ? t : NaN; }
 
+// Zwraca true, gdy kształt pliku został rozpoznany. Bez tego nie da się odróżnić
+// „to nie jest eksport Google" od „to jest eksport, ale nie ma w nim tras".
 function parseAny(obj){
-  if (Array.isArray(obj)){ FORMATS.add('fmt.phone'); return parseNewSegments(obj); }
+  if (Array.isArray(obj)){ FORMATS.add('fmt.phone'); parseNewSegments(obj); return true; }
   if (obj && Array.isArray(obj.semanticSegments)){
     FORMATS.add('fmt.phone');
     parseNewSegments(obj.semanticSegments);
     if (Array.isArray(obj.rawSignals)) parseRawSignals(obj.rawSignals);
-    return;
+    return true;
   }
-  if (obj && Array.isArray(obj.locations)){ FORMATS.add('fmt.records'); return parseRecords(obj.locations); }
-  if (obj && Array.isArray(obj.timelineObjects)){ FORMATS.add('fmt.semantic'); return parseSemantic(obj.timelineObjects); }
-  if (obj && Array.isArray(obj.timelineEdits)){ FORMATS.add('fmt.edits'); return parseTimelineEdits(obj.timelineEdits); }
-  if (obj && Array.isArray(obj.timelinePath)){ FORMATS.add('fmt.phone'); return parseNewSegments([obj]); }
+  if (obj && Array.isArray(obj.locations)){ FORMATS.add('fmt.records'); parseRecords(obj.locations); return true; }
+  if (obj && Array.isArray(obj.timelineObjects)){ FORMATS.add('fmt.semantic'); parseSemantic(obj.timelineObjects); return true; }
+  if (obj && Array.isArray(obj.timelineEdits)){ FORMATS.add('fmt.edits'); parseTimelineEdits(obj.timelineEdits); return true; }
+  if (obj && Array.isArray(obj.timelinePath)){ FORMATS.add('fmt.phone'); parseNewSegments([obj]); return true; }
+  return false;
+}
+
+// Diagnostyka wczytywania — zbierana i w wątku roboczym, i na ścieżce awaryjnej,
+// żeby po nieudanym wczytaniu powiedzieć, co było w plikach, a nie tylko „nie znaleziono tras".
+let DIAG = null;
+function diagReset(){ DIAG = { obce:[], zleJson:[], nieznane:[], puste:[], ok:0, jsonow:0 }; }
+function diagPlik(nazwa, txt){
+  DIAG.jsonow++;
+  let obj;
+  try { obj = JSON.parse(txt); }
+  catch (e){ if (DIAG.zleJson.length < 5) DIAG.zleJson.push(nazwa); return; }
+  if (parseAny(obj)) DIAG.ok++;
+  else if (DIAG.nieznane.length < 5)
+    DIAG.nieznane.push(nazwa + ' [' + (obj && typeof obj === 'object'
+      ? Object.keys(obj).slice(0,4).join(', ') || 'pusty obiekt'
+      : typeof obj) + ']');
 }
 
 // Nowy format telefonowy: segmenty timelinePath / activity / visit
@@ -1755,6 +1803,7 @@ function coreSource(){
   return (WORKER_SRC = out + `
 self.onmessage = async (e) => {
   const pliki = e.data.pliki;
+  diagReset();
   try {
     for (let i = 0; i < pliki.length; i++){
       const f = pliki[i];
@@ -1764,19 +1813,21 @@ self.onmessage = async (e) => {
         if (typeof JSZip === 'undefined') self.importScripts(e.data.jszip);
         const zip = await JSZip.loadAsync(f);
         const wpisy = Object.values(zip.files).filter(x => !x.dir && x.name.toLowerCase().endsWith('.json'));
+        if (!wpisy.length) DIAG.puste.push(f.name);
         for (let k = 0; k < wpisy.length; k++){
           self.postMessage({ typ:'postep', i, n:pliki.length, nazwa:wpisy[k].name.split('/').pop(), k:k+1, kn:wpisy.length });
-          try { parseAny(JSON.parse(await wpisy[k].async('string'))); } catch (err){}
+          diagPlik(wpisy[k].name.split('/').pop(), await wpisy[k].async('string'));
           FILES++;
         }
       } else if (nazwa.endsWith('.json')){
-        try { parseAny(JSON.parse(await f.text())); } catch (err){}
+        diagPlik(f.name, await f.text());
         FILES++;
-      }
+      } else if (DIAG.obce.length < 5) DIAG.obce.push(f.name);
     }
     self.postMessage({ typ:'etap', co:'finalize' });
     resolveModes(); computeHulls(); computeRange();
     const pak = packData();
+    pak.diag = DIAG;
     self.postMessage({ typ:'gotowe', pak }, packBuffers(pak));
   } catch (err){
     self.postMessage({ typ:'blad', msg: String(err && err.message || err) });
@@ -1836,23 +1887,27 @@ async function handleFiles(fileList){
                     : (files.length > 1 ? t('busy.parseN', d.i+1, d.n, d.nazwa) : t('busy.parse', d.nazwa)));
   });
   if (pak){
+    DIAG = pak.diag;
     unpackData(pak);
     finalizeLoad(true);            // tryby, otoczki i zakres dat policzył już wątek roboczy
   } else {
+    diagReset();
     try {
       for (const f of files){
         const name = f.name.toLowerCase();
         if (name.endsWith('.zip')) await handleZip(f);
         else if (name.endsWith('.json')){
           busy(true, t('busy.parse', f.name));
-          await parseTextSafely(await f.text(), f.name);
+          diagPlik(f.name, await f.text());
           FILES++;
         }
+        else if (DIAG.obce.length < 5) DIAG.obce.push(f.name);
       }
     } catch (err){ console.error(err); alert(t('err.read', err.message)); }
     finalizeLoad();
   }
   const parseS = ((performance.now()-t0)/1000).toFixed(1);
+  showLoadIssues();
   if (!SEGMENTS.length) return;
   if (!rememberOn()){
     cacheNote(t('load.noStore', parseS));
@@ -1869,20 +1924,15 @@ async function handleZip(file){
   busy(true, t('busy.unzip'));
   const zip = await JSZip.loadAsync(file);
   const entries = Object.values(zip.files).filter(e => !e.dir && e.name.toLowerCase().endsWith('.json'));
+  if (!entries.length) DIAG.puste.push(file.name);
   let i = 0;
   for (const e of entries){
     i++;
     busy(true, t('busy.parseN', i, entries.length, e.name.split('/').pop()));
-    await parseTextSafely(await e.async('string'), e.name);
+    diagPlik(e.name.split('/').pop(), await e.async('string'));
     FILES++;
     if (i % 15 === 0) await new Promise(r => setTimeout(r));
   }
-}
-async function parseTextSafely(txt, name){
-  let obj;
-  try { obj = JSON.parse(txt); }
-  catch (e){ console.warn('Skipped (invalid JSON):', name); return; }
-  parseAny(obj);
 }
 
 // zarezerwuj w panelu miejsce na dolny pasek, żeby się nie zachodziły na niskich oknach.
@@ -1960,8 +2010,7 @@ function finalizeLoad(fromCache){
   syncPanelHeight();
   busy(false);
   if (SEGMENTS.length && isNarrow()) setPanelOpen(false);   // na telefonie oddaj ekran mapie
-  if (SEGMENTS.length) fitToData();
-  else alert(t('err.noRoutes'));
+  if (SEGMENTS.length) fitToData();      // brak tras opisuje showLoadIssues, a nie alert
 }
 
 function fitToData(){
@@ -1980,6 +2029,7 @@ function clearAll(){
   TOTAL_PTS = 0; FILES = 0; FORMATS.clear(); DATA_MIN = DATA_MAX = null;
   DEMO = false;
   DUP_COUNT = 0; DUP_KM = 0; updateDupNote();
+  DIAG = null; showLoadIssues();
   cacheNote('');
   heat.setSegments(SEGMENTS).setFilter(null);
   measureShown = null; measureLayer.clearLayers(); poiLayer.clearLayers();
@@ -2790,6 +2840,31 @@ $('monthChart').addEventListener('click', (e) => {
 // Teksty statyczne siedzą w atrybutach data-i18n, więc przełączenie języka nie wymaga
 // przeładowania strony — a wszystko, co narysowane (wykresy, lista krajów, statystyki)
 // trzeba przerysować, bo etykiety powstały w poprzednim języku.
+// Zamiast „nie znaleziono żadnych tras" — co konkretnie było w plikach i czego zabrakło.
+// Pokazywane też przy częściowym sukcesie, żeby pominięte pliki nie znikały po cichu.
+function showLoadIssues(){
+  const box = document.getElementById('loadIssues');
+  const d = DIAG;
+  if (!d){ box.hidden = true; return; }
+  const punkty = [];
+  const lista = arr => '<ul><li><code>' + arr.map(x => String(x)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;')).join('</code></li><li><code>') + '</code></li></ul>';
+  if (d.obce.length)    punkty.push(t('diag.foreign', d.obce.length) + lista(d.obce));
+  if (d.zleJson.length) punkty.push(t('diag.badJson', d.zleJson.length) + lista(d.zleJson));
+  if (d.nieznane.length)punkty.push(t('diag.unknown', d.nieznane.length) + lista(d.nieznane));
+  if (d.puste.length)   punkty.push(t('diag.emptyZip') + lista(d.puste));
+  const sukces = SEGMENTS.length > 0;
+  if (sukces && !punkty.length){ box.hidden = true; return; }
+  if (!sukces && !punkty.length){
+    // pliki rozpoznane, ale bez użytecznych punktów — to inny problem niż zły plik
+    punkty.push(d.ok ? t('diag.recognisedEmpty') : t('diag.nothing'));
+  }
+  box.hidden = false;
+  box.className = sukces ? 'ok' : '';
+  box.innerHTML = '<b>' + (sukces ? t('diag.partialHdr') : t('diag.failHdr')) + '</b><br>'
+                + punkty.join('') + '<div style="margin-top:8px">' + t('diag.hint') + '</div>';
+  syncPanelHeight();
+}
 function updateDupNote(){
   const el = document.getElementById('dupNote'); if (!el) return;
   el.textContent = SEGMENTS.length
