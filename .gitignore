@@ -10,8 +10,8 @@ location-history.json
 _rec.mp4
 *.mp4
 
-# Lokalne ustawienia Claude Code — zawierają ścieżki z tego komputera
-.claude/settings.local.json
+# Konfiguracja narzędzi deweloperskich — aplikacja jej nie potrzebuje
+.claude/
 
 # Śmieci systemowe
 Thumbs.db
