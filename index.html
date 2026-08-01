@@ -364,7 +364,7 @@
 
     <div class="section" data-i18n="sec.fun"></div>
     <div class="spanStats">
-      <div class="spanStat"><span data-i18n="fun.pl"></span><b id="funPL">—</b></div>
+      <div class="spanStat"><span data-i18n="fun.mar"></span><b id="funMar">—</b></div>
       <div class="spanStat"><span data-i18n="fun.eq"></span><b id="funEq">—</b></div>
       <div class="spanStat"><span data-i18n="fun.moon"></span><b id="funMoon">—</b></div>
       <div class="spanStat"><span data-i18n="fun.co2"></span><b id="funCO2">—</b></div>
@@ -486,7 +486,7 @@ const I18N = {
     'ch.topYear': 'Najwięcej w roku: ', 'ch.topMonth': 'Najwięcej w miesiącu: ',
     'ch.clickHint': ' Kliknij słupek, aby zobaczyć ten okres na mapie.',
     'sec.fun': 'Dla zabawy',
-    'fun.pl': 'Okrążenia granic Polski', 'fun.eq': 'Długości równika',
+    'fun.mar': 'Długości maratonu', 'fun.eq': 'Długości równika',
     'fun.moon': 'Dystans do Księżyca', 'fun.co2': 'Szacowany ślad CO₂ (auto)',
     'meta.range': 'Zakres danych: ', 'meta.seg': 'Odcinki ', 'meta.pts': 'Punkty ',
     'meta.files': 'Pliki ', 'meta.fmt': 'Formaty: ',
@@ -594,7 +594,7 @@ const I18N = {
     'ch.topYear': 'Best year: ', 'ch.topMonth': 'Best month: ',
     'ch.clickHint': ' Click a bar to see that period on the map.',
     'sec.fun': 'For fun',
-    'fun.pl': 'Laps around Poland’s border', 'fun.eq': 'Equator lengths',
+    'fun.mar': 'Marathon lengths', 'fun.eq': 'Equator lengths',
     'fun.moon': 'Distance to the Moon', 'fun.co2': 'Estimated CO₂ (car)',
     'meta.range': 'Data range: ', 'meta.seg': 'Segments ', 'meta.pts': 'Points ',
     'meta.files': 'Files ', 'meta.fmt': 'Formats: ',
@@ -2601,7 +2601,8 @@ function updateStats(r){
 
   // --- Dla zabawy (ekwiwalenty) ---
   const km = total/1000;
-  document.getElementById('funPL').textContent   = km > 0 ? (km/3511).toFixed(1)+'×' : '—';
+  // maraton zamiast granic konkretnego kraju — jednostka rozpoznawalna wszędzie
+  document.getElementById('funMar').textContent  = km > 0 ? num(Math.round(km/42.195))+'×' : '—';
   document.getElementById('funEq').textContent   = km > 0 ? (km/40075).toFixed(2)+'×' : '—';
   document.getElementById('funMoon').textContent = km > 0 ? (km/384400*100).toFixed(2)+'%' : '—';
   const co2t = (dist.car/1000) * 0.12 / 1000;   // ~0,12 kg CO₂/km, w tonach
