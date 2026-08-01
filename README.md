@@ -2,6 +2,8 @@
 
 Turn your Google location history into a Strava-style heatmap of everywhere you have been.
 
+### ▶ [Open it here](https://jakielap.github.io/Google-Timeline-Heatmap/)
+
 **Your data never leaves your browser.** There is no server, no account, no sign-up and no
 analytics — the file you pick is read and drawn locally, on your own machine.
 
@@ -13,7 +15,8 @@ analytics — the file you pick is read and drawn locally, on your own machine.
 
 ## Try it without uploading anything
 
-Open the page and press **“No file yet? See an example”**. You get a full, generated data set —
+Open [the live page](https://jakielap.github.io/Google-Timeline-Heatmap/) and press
+**“No file yet? See an example”**. You get a full, generated data set —
 a home city, daily commutes, trips across Europe and a couple of flights — so you can click
 through every feature before deciding whether to load your own history.
 
@@ -79,8 +82,8 @@ default, and turning it back off deletes whatever was already stored.
 It is a single HTML file with no build step and no backend.
 
 - **Locally** — download `index.html` and open it in a browser.
-- **Hosting it for others** — put `index.html` on any static host. GitHub Pages works: enable
-  Pages for this repository and it is live.
+- **Hosting it for others** — put `index.html` on any static host. This copy runs on GitHub
+  Pages, served straight from the `main` branch with no build step.
 
 An internet connection is needed for the map tiles and the two libraries loaded from a CDN.
 
