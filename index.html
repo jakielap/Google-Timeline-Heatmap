@@ -765,7 +765,7 @@ L.HeatLines = L.Layer.extend({
   // Kolejność jest istotna: przestawienie kanwy przed gotowym obrazem pokazałoby
   // starą zawartość w nowym położeniu, czyli ślad rozjechany z podkładem.
   _commit(){
-    const v = this._view; if (!v) return;
+    const v = this._view; if (!v || this._pusto()) return;
     const cv = this._canvas, off = this._off;
     L.DomUtil.setPosition(cv, v.topLeft);
     if (cv.width !== off.width || cv.height !== off.height){ cv.width = off.width; cv.height = off.height; }
@@ -814,9 +814,15 @@ L.HeatLines = L.Layer.extend({
              minLat: b.getSouth(), maxLat: b.getNorth(), minLng: b.getWest(), maxLng: b.getEast(),
              topLeft: map.containerPointToLayerPoint([0,0]), cssW: size.x, cssH: size.y };
   },
+  // Kontener mapy bywa przy starcie jeszcze nierozłożony (ukryta karta, późny układ CSS)
+  // i ma wtedy 0×0. Rysowanie na zerowej kanwie nie ma sensu, a odczyt z niej rzuca wyjątkiem
+  // — wcześniej wywracało to cały skrypt na `const heat = ...` i aplikacja w ogóle się nie
+  // uruchamiała. Leaflet i tak zawoła `resize`, gdy kontener dostanie rozmiar.
+  _pusto(){ return !(this._off.width > 0 && this._off.height > 0); },
   _redraw(){
     this._cancelChunks();
     this._view = this._viewParams();
+    if (this._pusto()) return;
     const ctx = this._offCtx, s = this._scale || 1;
     ctx.setTransform(s,0,0,s,0,0);
     ctx.clearRect(0,0,this._view.cssW,this._view.cssH);
@@ -825,6 +831,7 @@ L.HeatLines = L.Layer.extend({
     this._chunkStep();
   },
   _chunkStep(){
+    if (this._pusto()){ this._chunkTimer = null; return; }
     const ctx = this._offCtx, s = this._scale || 1;
     ctx.setTransform(s,0,0,s,0,0);
     const t = performance.now();
@@ -847,7 +854,7 @@ L.HeatLines = L.Layer.extend({
   // Dorysuj resztę od razu — potrzebne, zanim ktoś domaluje coś na wierzchu (timelapse, eksport),
   // inaczej te same odcinki trafiłyby na kanwę dwa razy i rozjaśniły się.
   _finishChunks(){
-    if (this._chunkTimer == null) return;
+    if (this._chunkTimer == null || this._pusto()) return;
     this._cancelChunks();
     const ctx = this._offCtx, s = this._scale || 1;
     ctx.setTransform(s,0,0,s,0,0);
