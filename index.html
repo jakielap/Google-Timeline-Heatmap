@@ -52,6 +52,14 @@
   button:hover { border-color:var(--accent); }
   button.primary { background:var(--accent); border-color:var(--accent); color:#1a0f04; font-weight:600; }
   button.mini { flex:none; width:100%; margin-top:6px; padding:6px; font-size:11px; }
+  /* przycisk wyglądający jak odnośnik — rozwija wyjaśnienie, nie wykonuje akcji */
+  button.linkish {
+    width:auto; flex:none; min-width:0; margin-top:8px; padding:0; border:none; background:none;
+    color:var(--muted); font-size:10.5px; text-decoration:underline; text-underline-offset:2px;
+  }
+  button.linkish:hover { color:var(--accent); border:none; }
+  #privDetails p { margin:0 0 8px; }
+  #privDetails b { color:var(--txt); }
 
   select {
     width:100%; background:var(--panel2); color:var(--txt); border:1px solid #2f3542;
@@ -193,7 +201,26 @@
     <span style="font-size:11px">plik(i) .json lub .zip z Google Takeout</span>
     <input type="file" id="file" accept=".json,.zip" multiple />
   </label>
+
+  <label class="modeRow" id="rememberRow">
+    <input type="checkbox" id="remember">
+    <span class="mName">Zapamiętaj dane w tej przeglądarce</span>
+  </label>
   <div class="metaLine" id="cacheNote"></div>
+
+  <button id="privToggle" class="linkish" aria-expanded="false" aria-controls="privDetails">
+    Co się dzieje z moimi danymi?
+  </button>
+  <div class="metaLine" id="privDetails" hidden>
+    <p><b>Historia lokalizacji nie opuszcza tej przeglądarki.</b> Nie ma serwera, konta,
+    ciasteczek ani statystyk — pliki są czytane i rysowane lokalnie.</p>
+    <p>Z internetu pobierane są tylko: biblioteka mapy, obsługa archiwów ZIP, granice krajów
+    oraz kafelki mapy. <b>Kafelki dociągają się w miarę przewijania, więc ich dostawca (CARTO)
+    widzi, na jaki obszar patrzysz</b> — nie widzi natomiast Twoich tras ani wczytanego pliku.
+    Wybranie podkładu „Bez mapy" wyłącza i to.</p>
+    <p id="privStored">Nic nie jest zapisywane na tym urządzeniu.</p>
+    <button id="cacheClear" class="mini">Usuń zapamiętane dane z tej przeglądarki</button>
+  </div>
 
   <div id="controls" style="display:none">
     <div class="section">Wygląd śladu</div>
@@ -255,7 +282,6 @@
       <button id="png">Zapisz PNG</button>
       <button id="clear">Wyczyść</button>
     </div>
-    <button id="cacheClear" class="mini">Wyczyść pamięć podręczną</button>
   </div>
 
   <div id="stats" style="display:none">
@@ -1043,11 +1069,16 @@ function cacheKey(files){
 }
 function idbOpen(){
   return new Promise((res, rej) => {
-    const r = indexedDB.open(CACHE_DB, 1);
+    const r = indexedDB.open(CACHE_DB, 2);
     r.onupgradeneeded = () => {
       const db = r.result;
-      if (!db.objectStoreNames.contains(CACHE_STORE))
-        db.createObjectStore(CACHE_STORE, { keyPath:'key' }).createIndex('savedAt', 'savedAt');
+      const st = db.objectStoreNames.contains(CACHE_STORE)
+        ? r.transaction.objectStore(CACHE_STORE)
+        : db.createObjectStore(CACHE_STORE, { keyPath:'key' });
+      if (!st.indexNames.contains('savedAt')) st.createIndex('savedAt', 'savedAt');
+      // Klucz indeksu to sam rozmiar wpisu, więc da się go zsumować kursorem po kluczach,
+      // bez wczytywania wielkich tablic z danymi.
+      if (!st.indexNames.contains('bytes')) st.createIndex('bytes', 'bytes');
     };
     r.onsuccess = () => res(r.result);
     r.onerror = () => rej(r.error);
@@ -1135,7 +1166,7 @@ function unpackData(r){
 }
 
 async function cacheLoad(key){
-  if (!window.indexedDB) return null;
+  if (!(await cacheExists())) return null;      // nie zakładaj bazy tylko po to, żeby nic nie znaleźć
   const db = await idbOpen();
   try {
     const rec = await idbRun(db, 'readonly', st => st.get(key));
@@ -1148,6 +1179,9 @@ async function cacheSave(key){
   try {
     const rec = packData();
     rec.key = key; rec.savedAt = Date.now();
+    let bytes = 0;
+    for (const v of Object.values(rec)) if (ArrayBuffer.isView(v)) bytes += v.byteLength;
+    rec.bytes = bytes;
     await idbRun(db, 'readwrite', st => st.put(rec));
     // kasuj najstarsze ponad limit — po kluczach z indeksu, żeby nie wczytywać wielkich wartości
     const byAge = await new Promise((res, rej) => {
@@ -1160,9 +1194,82 @@ async function cacheSave(key){
     });
     for (const k of byAge.slice(0, Math.max(0, byAge.length - CACHE_KEEP)))
       await idbRun(db, 'readwrite', st => st.delete(k));
+    localStorage.setItem(STORED_FLAG, '1');    // wiadomo, że jest co czyścić i co pokazać
   } finally { db.close(); }
 }
 function cacheNote(txt){ document.getElementById('cacheNote').textContent = txt || ''; }
+
+// Zapamiętywanie jest DOMYŚLNIE WYŁĄCZONE i tak ma zostać. Zapis przyspiesza kolejne wczytanie
+// o niecałe pół sekundy, a kosztuje tym, że czyjaś historia lokalizacji zostaje na dysku po
+// zamknięciu karty — na wspólnym komputerze to wyciek. Zysk nie jest wart domyślnego ryzyka;
+// kto chce, ten włączy świadomie.
+const REMEMBER_PREF = 'thm.remember', STORED_FLAG = 'thm.stored';
+function rememberOn(){ return localStorage.getItem(REMEMBER_PREF) === '1'; }
+
+// Samo otwarcie bazy przez idbOpen() by ją ZAŁOŻYŁO, więc u kogoś, kto nigdy nie włączył
+// zapamiętywania, zostawiałaby ślad tylko dlatego, że zajrzeliśmy. Najpierw sprawdzamy,
+// czy w ogóle jest co oglądać.
+async function cacheExists(){
+  if (!window.indexedDB) return false;
+  if (localStorage.getItem(STORED_FLAG) === '1') return true;
+  if (indexedDB.databases){
+    try { return (await indexedDB.databases()).some(d => d.name === CACHE_DB); }
+    catch { return false; }
+  }
+  return false;   // bez indexedDB.databases() nie zgadujemy — lepiej nie zakładać bazy
+}
+async function cacheStats(){
+  if (!(await cacheExists())) return { sets:0 };
+  try {
+    const db = await idbOpen();
+    try {
+      const keys = await idbRun(db, 'readonly', st => st.getAllKeys());
+      // sumujemy klucze indeksu „bytes" — to dokładny rozmiar zapisanych danych.
+      // navigator.storage.estimate() tu nie nadaje się: podaje zużycie CAŁEJ domeny
+      // (razem z pamięcią podręczną HTTP) i nie reaguje od razu na usunięcie bazy.
+      const mb = await new Promise((res, rej) => {
+        const tx = db.transaction(CACHE_STORE, 'readonly');
+        let sum = 0;
+        tx.objectStore(CACHE_STORE).index('bytes').openKeyCursor().onsuccess = e => {
+          const c = e.target.result;
+          if (c){ sum += c.key || 0; c.continue(); }
+        };
+        tx.oncomplete = () => res(sum / 1048576); tx.onerror = () => rej(tx.error);
+      });
+      return { sets: keys.length, mb };
+    } finally { db.close(); }
+  } catch { return { sets:0 }; }
+}
+async function refreshPrivacy(){
+  const el = document.getElementById('privStored');
+  const s = await cacheStats();
+  if (!s.sets){
+    el.textContent = rememberOn()
+      ? 'Na razie nic nie jest zapisane — dane trafią tu po wczytaniu pliku.'
+      : 'Nic nie jest zapisywane na tym urządzeniu.';
+  } else {
+    // navigator.storage.estimate() podaje zużycie całej domeny, nie samych zestawów — stąd „około"
+    const ile = s.sets === 1 ? '1 zestaw danych' : `${s.sets} zestawy danych`;
+    el.textContent = `Na tym urządzeniu zapisano ${ile}` +
+      (s.mb ? `, łącznie ${s.mb.toFixed(1)} MB.` : '.');
+  }
+  document.getElementById('cacheClear').style.display = s.sets ? '' : 'none';
+}
+async function cacheWipe(){
+  const bylo = await cacheExists();          // sprawdzić ZANIM skasujemy znacznik
+  localStorage.removeItem(STORED_FLAG);
+  if (!bylo) return;
+  const db = await idbOpen();
+  try { await idbRun(db, 'readwrite', st => st.clear()); } finally { db.close(); }
+  // Samo wyczyszczenie magazynu zostawia pustą bazę i nie zwalnia miejsca, a przycisk obiecuje
+  // usunięcie. Kasujemy więc całą bazę i CZEKAMY na wynik — inaczej nie wiadomo, czy się udało.
+  await new Promise(res => {
+    const req = indexedDB.deleteDatabase(CACHE_DB);
+    req.onsuccess = req.onerror = () => res();
+    req.onblocked = () => res();          // inna karta trzyma połączenie — magazyn i tak jest pusty
+    setTimeout(res, 3000);
+  });
+}
 
 async function handleFiles(fileList){
   const files = Array.from(fileList);
@@ -1172,7 +1279,7 @@ async function handleFiles(fileList){
   const key = cacheKey(files);
   const t0 = performance.now();
   try {
-    const hit = await cacheLoad(key);
+    const hit = rememberOn() ? await cacheLoad(key) : null;
     if (hit){
       busy(true, 'Odczyt z pamięci podręcznej…');
       unpackData(hit);
@@ -1195,11 +1302,15 @@ async function handleFiles(fileList){
   const parseS = ((performance.now()-t0)/1000).toFixed(1);
   finalizeLoad();
   if (!SEGMENTS.length) return;
+  if (!rememberOn()){
+    cacheNote(`Wczytano w ${parseS} s. Dane nie zostały nigdzie zapisane.`);
+    return;
+  }
   // Zapis nie może blokować mapy — użytkownik ma już wynik na ekranie.
   cacheSave(key).then(
-    () => cacheNote(`Sparsowano w ${parseS} s. Następnym razem wczyta się z pamięci podręcznej.`),
+    () => { cacheNote(`Wczytano w ${parseS} s. Zapamiętano w tej przeglądarce.`); refreshPrivacy(); },
     e  => { console.warn('Nie udało się zapisać pamięci podręcznej:', e);
-            cacheNote(`Sparsowano w ${parseS} s. Nie udało się zapisać w pamięci podręcznej.`); });
+            cacheNote(`Wczytano w ${parseS} s. Nie udało się zapamiętać w tej przeglądarce.`); });
 }
 async function handleZip(file){
   if (typeof JSZip === 'undefined'){ alert('Biblioteka ZIP nie została załadowana (brak internetu?).'); return; }
@@ -2010,11 +2121,35 @@ $('png').addEventListener('click', exportPNG);
 $('clear').addEventListener('click', clearAll);
 $('cacheClear').addEventListener('click', async () => {
   try {
-    const db = await idbOpen();
-    try { await idbRun(db, 'readwrite', st => st.clear()); } finally { db.close(); }
-    cacheNote('Pamięć podręczna wyczyszczona.');
-  } catch (e){ console.warn(e); cacheNote('Nie udało się wyczyścić pamięci podręcznej.'); }
+    await cacheWipe();
+    cacheNote('Usunięto zapamiętane dane z tej przeglądarki.');
+  } catch (e){ console.warn(e); cacheNote('Nie udało się usunąć zapamiętanych danych.'); }
+  refreshPrivacy();
 });
+$('privToggle').addEventListener('click', () => {
+  const box = $('privDetails'), pokaz = box.hidden;
+  box.hidden = !pokaz;
+  $('privToggle').setAttribute('aria-expanded', String(pokaz));
+  if (pokaz) refreshPrivacy();
+  syncPanelHeight();
+});
+// Wyłączenie zapamiętywania musi też USUNĄĆ to, co już leży na dysku — inaczej przełącznik
+// obiecuje prywatność, której nie dowozi.
+$('remember').addEventListener('change', async e => {
+  const on = e.target.checked;
+  localStorage.setItem(REMEMBER_PREF, on ? '1' : '0');
+  if (!on){
+    try { await cacheWipe(); cacheNote('Zapamiętywanie wyłączone — usunięto zapisane dane.'); }
+    catch (err){ console.warn(err); cacheNote('Zapamiętywanie wyłączone, ale nie udało się usunąć zapisanych danych.'); }
+  } else {
+    cacheNote(SEGMENTS.length
+      ? 'Dane zostaną zapamiętane przy następnym wczytaniu pliku.'
+      : 'Wczytane dane będą zapamiętywane w tej przeglądarce.');
+  }
+  refreshPrivacy();
+});
+$('remember').checked = rememberOn();
+refreshPrivacy();
 
 $('dFrom').addEventListener('input', () => {
   const from = $('dFrom'), to = $('dTo');
