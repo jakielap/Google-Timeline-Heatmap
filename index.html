@@ -170,6 +170,7 @@
     input[type=range] { height:30px; }
     .modeRow { padding:9px 0; font-size:13px; }
     .dateInput { padding:7px 9px; font-size:14px; }
+    select { padding:9px 10px; font-size:13px; }
     button { padding:11px 10px; font-size:13px; }
     button.mini { padding:9px; font-size:12px; }
     .spanStat { padding:10px 0; }
@@ -198,68 +199,68 @@
 
 <div id="panel">
   <h1>Timeline Heatmap</h1>
-  <div class="sub">Mapa Twoich tras w stylu Stravy — dane zostają w przeglądarce.</div>
+  <div class="sub" data-i18n="app.sub"></div>
+
+  <select id="lang" aria-label="Language">
+    <option value="en">English</option>
+    <option value="pl">Polski</option>
+  </select>
 
   <label class="drop" id="drop">
-    Przeciągnij tutaj lub <b>kliknij</b><br>
-    <span style="font-size:11px">plik(i) .json lub .zip z Google Takeout</span>
+    <span data-i18n-html="drop.main"></span><br>
+    <span style="font-size:11px" data-i18n="drop.sub"></span>
     <input type="file" id="file" accept=".json,.zip" multiple />
   </label>
-  <button id="demo">Nie masz pliku? Zobacz przykład</button>
+  <button id="demo" data-i18n="demo.btn"></button>
 
   <label class="modeRow" id="rememberRow">
     <input type="checkbox" id="remember">
-    <span class="mName">Zapamiętaj dane w tej przeglądarce</span>
+    <span class="mName" data-i18n="remember.label"></span>
   </label>
   <div class="metaLine" id="cacheNote"></div>
 
-  <button id="privToggle" class="linkish" aria-expanded="false" aria-controls="privDetails">
-    Co się dzieje z moimi danymi?
-  </button>
+  <button id="privToggle" class="linkish" aria-expanded="false" aria-controls="privDetails"
+          data-i18n="priv.toggle"></button>
   <div class="metaLine" id="privDetails" hidden>
-    <p><b>Historia lokalizacji nie opuszcza tej przeglądarki.</b> Nie ma serwera, konta,
-    ciasteczek ani statystyk — pliki są czytane i rysowane lokalnie.</p>
-    <p>Z internetu pobierane są tylko: biblioteka mapy, obsługa archiwów ZIP, granice krajów
-    oraz kafelki mapy. <b>Kafelki dociągają się w miarę przewijania, więc ich dostawca (CARTO)
-    widzi, na jaki obszar patrzysz</b> — nie widzi natomiast Twoich tras ani wczytanego pliku.
-    Wybranie podkładu „Bez mapy" wyłącza i to.</p>
-    <p id="privStored">Nic nie jest zapisywane na tym urządzeniu.</p>
-    <button id="cacheClear" class="mini">Usuń zapamiętane dane z tej przeglądarki</button>
+    <p data-i18n-html="priv.p1"></p>
+    <p data-i18n-html="priv.p2"></p>
+    <p id="privStored"></p>
+    <button id="cacheClear" class="mini" data-i18n="priv.clear"></button>
   </div>
 
   <div id="controls" style="display:none">
-    <div class="section">Wygląd śladu</div>
-    <div class="row"><label>Tryb</label>
+    <div class="section" data-i18n="sec.style"></div>
+    <div class="row"><label data-i18n="style.mode"></label>
       <select id="styleMode">
-        <option value="heat">Heatmapa (świecenie)</option>
-        <option value="lines">Jednolite linie</option>
+        <option value="heat" data-i18n="style.heat"></option>
+        <option value="lines" data-i18n="style.lines"></option>
       </select>
     </div>
-    <div class="metaLine" id="styleHint">Nakładające się trasy rozjaśniają się — widać, którędy jeździsz najczęściej.</div>
+    <div class="metaLine" id="styleHint"></div>
 
-    <div class="row"><label>Kolor śladu</label>
+    <div class="row"><label data-i18n="style.color"></label>
       <input type="color" id="color" value="#ff7a1a" /></div>
 
-    <div class="row"><label id="opLbl">Jasność linii</label><span class="val" id="opVal">0.14</span></div>
+    <div class="row"><label id="opLbl"></label><span class="val" id="opVal">0.14</span></div>
     <input type="range" id="opacity" min="0.02" max="1" step="0.01" value="0.14" />
 
-    <div class="row"><label>Grubość</label><span class="val" id="wVal">1.6</span></div>
+    <div class="row"><label data-i18n="style.weight"></label><span class="val" id="wVal">1.6</span></div>
     <input type="range" id="weight" min="0.5" max="6" step="0.1" value="1.6" />
 
-    <div class="section">Środki transportu
-      <label class="tgl"><input type="checkbox" id="colorByMode" /> koloruj wg trybu</label>
+    <div class="section"><span data-i18n="sec.modes"></span>
+      <label class="tgl"><input type="checkbox" id="colorByMode" /> <span data-i18n="modes.byMode"></span></label>
     </div>
     <div id="modes"></div>
 
-    <div class="section">Zakres dat</div>
-    <div class="daterow"><span>Od</span><input type="date" id="dtFrom" class="dateInput" /></div>
+    <div class="section" data-i18n="sec.dates"></div>
+    <div class="daterow"><span data-i18n="dates.from"></span><input type="date" id="dtFrom" class="dateInput" /></div>
     <input type="range" id="dFrom" min="0" max="0" value="0" step="1" />
-    <div class="daterow"><span>Do</span><input type="date" id="dtTo" class="dateInput" /></div>
+    <div class="daterow"><span data-i18n="dates.to"></span><input type="date" id="dtTo" class="dateInput" /></div>
     <input type="range" id="dTo" min="0" max="0" value="0" step="1" />
-    <button id="resetDates" class="mini">Cały zakres</button>
+    <button id="resetDates" class="mini" data-i18n="dates.all"></button>
 
-    <div class="section">Timelapse</div>
-    <div class="row"><label>Czas animacji</label>
+    <div class="section" data-i18n="sec.timelapse"></div>
+    <div class="row"><label data-i18n="tl.dur"></label>
       <select id="tlDur">
         <option value="10">10 s</option>
         <option value="20" selected>20 s</option>
@@ -267,118 +268,112 @@
         <option value="90">90 s</option>
       </select>
     </div>
-    <button id="tlPlay" class="mini">Odtwórz narastanie tras</button>
-    <div class="chartLbl" id="tlLbl">Ślad narasta dzień po dniu w wybranym zakresie dat.</div>
+    <button id="tlPlay" class="mini"></button>
+    <div class="chartLbl" id="tlLbl"></div>
 
-    <div class="section">Podkład mapy</div>
+    <div class="section" data-i18n="sec.basemap"></div>
     <select id="basemap">
-      <option value="dark">Ciemny (Strava-look)</option>
-      <option value="light">Jasny</option>
-      <option value="sat">Satelita</option>
-      <option value="none">Bez mapy (czarne tło)</option>
+      <option value="dark" data-i18n="bm.dark"></option>
+      <option value="light" data-i18n="bm.light"></option>
+      <option value="sat" data-i18n="bm.sat"></option>
+      <option value="none" data-i18n="bm.none"></option>
     </select>
     <label class="modeRow" style="margin-top:8px">
       <input type="checkbox" id="showCountries">
-      <span class="mName">Podświetl odwiedzone kraje</span>
+      <span class="mName" data-i18n="bm.countries"></span>
     </label>
 
     <div class="btns">
-      <button id="fit" class="primary">Dopasuj widok</button>
-      <button id="png">Zapisz PNG</button>
-      <button id="clear">Wyczyść</button>
+      <button id="fit" class="primary" data-i18n="btn.fit"></button>
+      <button id="png" data-i18n="btn.png"></button>
+      <button id="clear" data-i18n="btn.clear"></button>
     </div>
   </div>
 
   <div id="stats" style="display:none">
-    <div class="section">Wizyty</div>
+    <div class="section" data-i18n="sec.visits"></div>
     <div class="statGrid">
-      <div><b id="stHome">0</b><span>wizyty w domu</span></div>
-      <div><b id="stWork">0</b><span>wizyty w pracy</span></div>
+      <div><b id="stHome">0</b><span data-i18n="st.home"></span></div>
+      <div><b id="stWork">0</b><span data-i18n="st.work"></span></div>
     </div>
-    <div class="section">Rekordy trasy</div>
+    <div class="section" data-i18n="sec.spanRec"></div>
     <div class="spanStats">
-      <div class="spanStat clickable" id="statDiam"><span>Najdalsze dwa punkty (linia prosta)</span><b id="stDiam">—</b></div>
-      <div class="spanStat clickable" id="statConn"><span>Najdłuższy ciągły ślad (zasięg)</span><b id="stConn">—</b></div>
-      <div class="measureHint">Kliknij metrykę, aby pokazać ją na mapie.</div>
+      <div class="spanStat clickable" id="statDiam"><span data-i18n="span.diam"></span><b id="stDiam">—</b></div>
+      <div class="spanStat clickable" id="statConn"><span data-i18n="span.conn"></span><b id="stConn">—</b></div>
+      <div class="measureHint" data-i18n="span.hint"></div>
     </div>
 
-    <div class="section">Rekordy</div>
+    <div class="section" data-i18n="sec.records"></div>
     <div class="statGrid">
-      <div class="clickable" id="statTrip"><b id="rTrip">—</b><span>najdłuższa podróż</span></div>
-      <div class="clickable" id="statDay"><b id="rDay" title="">—</b><span>najwięcej w 1 dzień</span></div>
-      <div><b id="rStreak">—</b><span>seria aktywnych dni</span></div>
-      <div><b id="rMonth" title="">—</b><span>najruchliwszy miesiąc</span></div>
+      <div class="clickable" id="statTrip"><b id="rTrip">—</b><span data-i18n="rec.trip"></span></div>
+      <div class="clickable" id="statDay"><b id="rDay" title="">—</b><span data-i18n="rec.day"></span></div>
+      <div><b id="rStreak">—</b><span data-i18n="rec.streak"></span></div>
+      <div><b id="rMonth" title="">—</b><span data-i18n="rec.month"></span></div>
     </div>
-    <div class="metaLine" id="recordHint">Kliknij rekord, aby pokazać trasę na mapie.</div>
+    <div class="metaLine" id="recordHint" data-i18n="rec.hint"></div>
 
-    <div class="section">Zasięg geograficzny</div>
+    <div class="section" data-i18n="sec.geo"></div>
     <div class="spanStats">
-      <div class="spanStat clickable" id="gxN"><span>Najdalej na północ</span><b id="gN">—</b></div>
-      <div class="spanStat clickable" id="gxS"><span>Najdalej na południe</span><b id="gS">—</b></div>
-      <div class="spanStat clickable" id="gxE"><span>Najdalej na wschód</span><b id="gE">—</b></div>
-      <div class="spanStat clickable" id="gxW"><span>Najdalej na zachód</span><b id="gW">—</b></div>
-      <div class="spanStat clickable" id="gxC"><span>Środek ciężkości</span><b id="gC">—</b></div>
-      <div class="spanStat"><span>Odwiedzone rejony (~5 km)</span><b id="gCells">—</b></div>
+      <div class="spanStat clickable" id="gxN"><span data-i18n="geo.n"></span><b id="gN">—</b></div>
+      <div class="spanStat clickable" id="gxS"><span data-i18n="geo.s"></span><b id="gS">—</b></div>
+      <div class="spanStat clickable" id="gxE"><span data-i18n="geo.e"></span><b id="gE">—</b></div>
+      <div class="spanStat clickable" id="gxW"><span data-i18n="geo.w"></span><b id="gW">—</b></div>
+      <div class="spanStat clickable" id="gxC"><span data-i18n="geo.c"></span><b id="gC">—</b></div>
+      <div class="spanStat"><span data-i18n="geo.cells"></span><b id="gCells">—</b></div>
     </div>
 
-    <div class="section">Odwiedzone kraje <span class="tgl" id="ccCount">—</span></div>
+    <div class="section"><span data-i18n="sec.countries"></span> <span class="tgl" id="ccCount">—</span></div>
     <div class="spanStats" id="countryList"></div>
-    <div class="metaLine">Obszar to suma odwiedzonych rejonów w danym kraju. Kliknij kraj, aby go pokazać na mapie.</div>
+    <div class="metaLine" data-i18n="cc.hint"></div>
 
-    <div class="section">Średnia prędkość (z postojami)</div>
+    <div class="section" data-i18n="sec.speed"></div>
     <div id="speedRows"></div>
 
-    <div class="section">Kiedy się przemieszczasz</div>
+    <div class="section" data-i18n="sec.when"></div>
     <canvas id="dowHour" class="chart"></canvas>
-    <div class="chartLbl">Jaśniej = więcej kilometrów. Wiersze: dni tygodnia, kolumny: godziny doby.</div>
+    <div class="chartLbl" data-i18n="when.hint"></div>
 
-    <div class="section" id="chTimeHdr">Kilometry miesiącami</div>
+    <div class="section" id="chTimeHdr"></div>
     <canvas id="monthChart" class="chart"></canvas>
     <div class="chartLbl" id="monthLbl">—</div>
 
-    <div class="section">Dla zabawy</div>
+    <div class="section" data-i18n="sec.fun"></div>
     <div class="spanStats">
-      <div class="spanStat"><span>Okrążenia granic Polski</span><b id="funPL">—</b></div>
-      <div class="spanStat"><span>Długości równika</span><b id="funEq">—</b></div>
-      <div class="spanStat"><span>Dystans do Księżyca</span><b id="funMoon">—</b></div>
-      <div class="spanStat"><span>Szacowany ślad CO₂ (auto)</span><b id="funCO2">—</b></div>
+      <div class="spanStat"><span data-i18n="fun.pl"></span><b id="funPL">—</b></div>
+      <div class="spanStat"><span data-i18n="fun.eq"></span><b id="funEq">—</b></div>
+      <div class="spanStat"><span data-i18n="fun.moon"></span><b id="funMoon">—</b></div>
+      <div class="spanStat"><span data-i18n="fun.co2"></span><b id="funCO2">—</b></div>
     </div>
 
     <div class="metaLine">
-      Zakres danych: <b id="stRange">—</b><br>
-      Odcinki <b id="sSeg">0</b> · Punkty <b id="sPts">0</b> · Pliki <b id="sFiles">0</b><br>
-      Formaty: <b id="sFmt">—</b>
+      <span data-i18n="meta.range"></span><b id="stRange">—</b><br>
+      <span data-i18n="meta.seg"></span><b id="sSeg">0</b> · <span data-i18n="meta.pts"></span><b id="sPts">0</b>
+      · <span data-i18n="meta.files"></span><b id="sFiles">0</b><br>
+      <span data-i18n="meta.fmt"></span><b id="sFmt">—</b>
     </div>
   </div>
 
   <details>
-    <summary>Skąd wziąć dane?</summary>
-    <div class="metaLine" style="margin-top:8px">
-      <b>Z telefonu (nowy):</b> Ustawienia → Lokalizacja → Oś czasu →
-      Eksportuj dane osi czasu → <i>Timeline.json</i> (najlepsze źródło).<br><br>
-      <b>Google Takeout (starszy):</b> takeout.google.com → „Historia lokalizacji".
-      Możesz wrzucić cały <i>.zip</i> albo pojedyncze pliki JSON.<br><br>
-      Aplikacja sama wykryje format. Dane nigdzie nie są wysyłane — całe przetwarzanie
-      dzieje się lokalnie w przeglądarce.
-    </div>
+    <summary data-i18n="help.summary"></summary>
+    <div class="metaLine" style="margin-top:8px" data-i18n-html="help.body"></div>
   </details>
 </div>
 
 <div id="quickBar" style="display:none">
-  <div class="qItem"><b id="stDist">0 km</b><span id="stDistLbl">łączny dystans</span></div>
+  <div class="qItem"><b id="stDist">0 km</b><span id="stDistLbl"></span></div>
   <div class="qSep"></div>
-  <div class="qItem"><b id="stTrips">0</b><span>podróże</span></div>
+  <div class="qItem"><b id="stTrips">0</b><span data-i18n="q.trips"></span></div>
   <div class="qSep"></div>
-  <div class="qItem"><b id="stDays">0</b><span>aktywne dni</span></div>
+  <div class="qItem"><b id="stDays">0</b><span data-i18n="q.days"></span></div>
   <div class="qSep"></div>
-  <div class="qItem clickable" id="qTrip"><b id="qTripVal">—</b><span>najdłuższa podróż</span></div>
+  <div class="qItem clickable" id="qTrip"><b id="qTripVal">—</b><span data-i18n="q.longest"></span></div>
   <div class="qSep"></div>
-  <div class="qItem"><b id="gCountries">—</b><span>odwiedzone kraje</span></div>
+  <div class="qItem"><b id="gCountries">—</b><span data-i18n="q.countries"></span></div>
   <div class="qSep"></div>
-  <div class="qItem"><b id="gArea">—</b><span>odwiedzony obszar</span></div>
+  <div class="qItem"><b id="gArea">—</b><span data-i18n="q.area"></span></div>
 </div>
 
-<div id="busy"><div class="box"><div class="spin"></div><div id="busyTxt">Przetwarzanie…</div></div></div>
+<div id="busy"><div class="box"><div class="spin"></div><div id="busyTxt"></div></div></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
         integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
@@ -392,15 +387,223 @@
 
 const DAY = 86400000;
 
+// ---------- Języki ----------
+// Domyślnie angielski, polski tylko dla przeglądarek ustawionych na polski — strona ma być
+// dostępna dla kogokolwiek, a nie tylko dla jednego kraju. Wybór zapisuje się w localStorage.
+const LANG_PREF = 'thm.lang';
+const I18N = {
+  pl: {
+    'app.sub': 'Mapa Twoich tras w stylu Stravy — dane zostają w przeglądarce.',
+    'panel.open': 'Ustawienia', 'panel.close': 'Zamknij',
+    'drop.main': 'Przeciągnij tutaj lub <b>kliknij</b>',
+    'drop.sub': 'plik(i) .json lub .zip z Google Takeout',
+    'demo.btn': 'Nie masz pliku? Zobacz przykład',
+    'demo.note': 'Dane przykładowe — wymyślone, nie są niczyją prawdziwą historią. Wczytaj własny plik, żeby zobaczyć swoje trasy.',
+    'demo.building': 'Buduję przykład…',
+    'demo.format': 'dane przykładowe',
+    'fmt.phone': 'Timeline (telefon)', 'fmt.records': 'Takeout Records',
+    'fmt.semantic': 'Takeout Semantic', 'fmt.edits': 'Timeline Edits (Takeout)',
+    'remember.label': 'Zapamiętaj dane w tej przeglądarce',
+    'priv.toggle': 'Co się dzieje z moimi danymi?',
+    'priv.p1': '<b>Historia lokalizacji nie opuszcza tej przeglądarki.</b> Nie ma serwera, konta, ciasteczek ani statystyk — pliki są czytane i rysowane lokalnie.',
+    'priv.p2': 'Z internetu pobierane są tylko: biblioteka mapy, obsługa archiwów ZIP, granice krajów oraz kafelki mapy. <b>Kafelki dociągają się w miarę przewijania, więc ich dostawca (CARTO) widzi, na jaki obszar patrzysz</b> — nie widzi natomiast Twoich tras ani wczytanego pliku. Wybranie podkładu „Bez mapy" wyłącza i to.',
+    'priv.none': 'Nic nie jest zapisywane na tym urządzeniu.',
+    'priv.pending': 'Na razie nic nie jest zapisane — dane trafią tu po wczytaniu pliku.',
+    'priv.stored1': 'Na tym urządzeniu zapisano 1 zestaw danych',
+    'priv.storedN': 'Na tym urządzeniu zapisano {0} zestawy danych',
+    'priv.storedSize': ', łącznie {0} MB.',
+    'priv.clear': 'Usuń zapamiętane dane z tej przeglądarki',
+    'priv.cleared': 'Usunięto zapamiętane dane z tej przeglądarki.',
+    'priv.clearFail': 'Nie udało się usunąć zapamiętanych danych.',
+    'priv.offCleared': 'Zapamiętywanie wyłączone — usunięto zapisane dane.',
+    'priv.offFail': 'Zapamiętywanie wyłączone, ale nie udało się usunąć zapisanych danych.',
+    'priv.onNext': 'Dane zostaną zapamiętane przy następnym wczytaniu pliku.',
+    'priv.onFuture': 'Wczytane dane będą zapamiętywane w tej przeglądarce.',
+    'sec.style': 'Wygląd śladu', 'style.mode': 'Tryb',
+    'style.heat': 'Heatmapa (świecenie)', 'style.lines': 'Jednolite linie',
+    'style.heatHint': 'Nakładające się trasy rozjaśniają się — widać, którędy jeździsz najczęściej.',
+    'style.linesHint': 'Każda trasa tą samą grubością, bez świecenia — liczy się zasięg, nie częstotliwość.',
+    'style.color': 'Kolor śladu', 'style.bright': 'Jasność linii', 'style.alpha': 'Krycie linii',
+    'style.weight': 'Grubość',
+    'sec.modes': 'Środki transportu', 'modes.byMode': 'koloruj wg trybu',
+    'sec.dates': 'Zakres dat', 'dates.from': 'Od', 'dates.to': 'Do', 'dates.all': 'Cały zakres',
+    'sec.timelapse': 'Timelapse', 'tl.dur': 'Czas animacji',
+    'tl.play': 'Odtwórz narastanie tras', 'tl.stop': 'Zatrzymaj',
+    'tl.hint': 'Ślad narasta dzień po dniu w wybranym zakresie dat.',
+    'sec.basemap': 'Podkład mapy',
+    'bm.dark': 'Ciemny (Strava-look)', 'bm.light': 'Jasny', 'bm.sat': 'Satelita', 'bm.none': 'Bez mapy (czarne tło)',
+    'bm.countries': 'Podświetl odwiedzone kraje',
+    'btn.fit': 'Dopasuj widok', 'btn.png': 'Zapisz PNG', 'btn.clear': 'Wyczyść',
+    'sec.visits': 'Wizyty', 'st.home': 'wizyty w domu', 'st.work': 'wizyty w pracy',
+    'sec.spanRec': 'Rekordy trasy',
+    'span.diam': 'Najdalsze dwa punkty (linia prosta)', 'span.conn': 'Najdłuższy ciągły ślad (zasięg)',
+    'span.hint': 'Kliknij metrykę, aby pokazać ją na mapie.',
+    'sec.records': 'Rekordy',
+    'rec.trip': 'najdłuższa podróż', 'rec.day': 'najwięcej w 1 dzień',
+    'rec.streak': 'seria aktywnych dni', 'rec.month': 'najruchliwszy miesiąc',
+    'rec.hint': 'Kliknij rekord, aby pokazać trasę na mapie.',
+    'sec.geo': 'Zasięg geograficzny',
+    'geo.n': 'Najdalej na północ', 'geo.s': 'Najdalej na południe',
+    'geo.e': 'Najdalej na wschód', 'geo.w': 'Najdalej na zachód',
+    'geo.c': 'Środek ciężkości', 'geo.cells': 'Odwiedzone rejony (~5 km)',
+    'sec.countries': 'Odwiedzone kraje',
+    'cc.hint': 'Obszar to suma odwiedzonych rejonów w danym kraju. Kliknij kraj, aby go pokazać na mapie.',
+    'cc.show': 'Pokaż na mapie', 'cc.loading': 'Wczytywanie granic…', 'cc.none': 'Brak danych.',
+    'cc.count': '{0} szt.',
+    'sec.speed': 'Średnia prędkość (z postojami)', 'speed.none': 'Brak danych o czasie podróży.',
+    'sec.when': 'Kiedy się przemieszczasz',
+    'when.hint': 'Jaśniej = więcej kilometrów. Wiersze: dni tygodnia, kolumny: godziny doby.',
+    'ch.months': 'Kilometry miesiącami', 'ch.years': 'Kilometry rocznie',
+    'ch.isolated': '{0}: {1} — na mapie tylko ten okres. Kliknij ponownie, aby wrócić.',
+    'ch.topYear': 'Najwięcej w roku: ', 'ch.topMonth': 'Najwięcej w miesiącu: ',
+    'ch.clickHint': ' Kliknij słupek, aby zobaczyć ten okres na mapie.',
+    'sec.fun': 'Dla zabawy',
+    'fun.pl': 'Okrążenia granic Polski', 'fun.eq': 'Długości równika',
+    'fun.moon': 'Dystans do Księżyca', 'fun.co2': 'Szacowany ślad CO₂ (auto)',
+    'meta.range': 'Zakres danych: ', 'meta.seg': 'Odcinki ', 'meta.pts': 'Punkty ',
+    'meta.files': 'Pliki ', 'meta.fmt': 'Formaty: ',
+    'help.summary': 'Skąd wziąć dane?',
+    'help.body': '<b>Z telefonu (nowy):</b> Ustawienia → Lokalizacja → Oś czasu → Eksportuj dane osi czasu → <i>Timeline.json</i> (najlepsze źródło).<br><br><b>Google Takeout (starszy):</b> takeout.google.com → „Historia lokalizacji". Możesz wrzucić cały <i>.zip</i> albo pojedyncze pliki JSON.<br><br>Aplikacja sama wykryje format. Dane nigdzie nie są wysyłane — całe przetwarzanie dzieje się lokalnie w przeglądarce.',
+    'q.dist': 'łączny dystans', 'q.distRange': 'łączny dystans (wybrany okres)',
+    'q.distGeom': 'dystans z geometrii tras',
+    'q.trips': 'podróże', 'q.days': 'aktywne dni', 'q.longest': 'najdłuższa podróż',
+    'q.countries': 'odwiedzone kraje', 'q.area': 'odwiedzony obszar',
+    'busy.default': 'Przetwarzanie…', 'busy.reading': 'Wczytywanie plików…',
+    'busy.cache': 'Odczyt z pamięci podręcznej…', 'busy.unzip': 'Rozpakowywanie ZIP…',
+    'busy.parse': 'Parsowanie: {0}', 'busy.parseN': 'Parsowanie ({0}/{1}): {2}',
+    'load.cached': 'Wczytano z pamięci podręcznej w {0} s.',
+    'load.noStore': 'Wczytano w {0} s. Dane nie zostały nigdzie zapisane.',
+    'load.stored': 'Wczytano w {0} s. Zapamiętano w tej przeglądarce.',
+    'load.storeFail': 'Wczytano w {0} s. Nie udało się zapamiętać w tej przeglądarce.',
+    'err.read': 'Błąd podczas wczytywania: {0}',
+    'err.nozip': 'Biblioteka ZIP nie została załadowana (brak internetu?).',
+    'err.noRoutes': 'Nie znaleziono żadnych tras w tych plikach. Upewnij się, że to eksport historii lokalizacji Google.',
+    'err.png': 'Nie udało się wyeksportować obrazu: {0}',
+    'err.borders': 'Nie udało się pobrać granic krajów (brak internetu?).',
+    'unit.days': ' dni',
+    'mode.car': 'Samochód', 'mode.walk': 'Pieszo', 'mode.bike': 'Rower',
+    'mode.transit': 'Komunikacja', 'mode.flight': 'Lot', 'mode.unknown': 'Inne / brak',
+    'dow': ['Pn','Wt','Śr','Cz','Pt','So','Nd'],
+    'months': ['sty','lut','mar','kwi','maj','cze','lip','sie','wrz','paź','lis','gru'],
+  },
+  en: {
+    'app.sub': 'A Strava-style map of your trips — your data stays in the browser.',
+    'panel.open': 'Settings', 'panel.close': 'Close',
+    'drop.main': 'Drag files here or <b>click</b>',
+    'drop.sub': '.json or .zip file(s) from Google Takeout',
+    'demo.btn': 'No file yet? See an example',
+    'demo.note': 'Example data — made up, not anyone’s real history. Load your own file to see your trips.',
+    'demo.building': 'Building the example…',
+    'demo.format': 'example data',
+    'fmt.phone': 'Timeline (phone)', 'fmt.records': 'Takeout Records',
+    'fmt.semantic': 'Takeout Semantic', 'fmt.edits': 'Timeline Edits (Takeout)',
+    'remember.label': 'Remember data in this browser',
+    'priv.toggle': 'What happens to my data?',
+    'priv.p1': '<b>Your location history never leaves this browser.</b> There is no server, no account, no cookies and no analytics — files are read and drawn locally.',
+    'priv.p2': 'The only things fetched from the internet are: the map library, ZIP support, country borders and map tiles. <b>Tiles load as you pan, so their provider (CARTO) can see which area you are looking at</b> — it cannot see your trips or the file you loaded. Choosing the “No map” basemap stops that too.',
+    'priv.none': 'Nothing is stored on this device.',
+    'priv.pending': 'Nothing stored yet — data will appear here once you load a file.',
+    'priv.stored1': '1 data set stored on this device',
+    'priv.storedN': '{0} data sets stored on this device',
+    'priv.storedSize': ', {0} MB in total.',
+    'priv.clear': 'Delete stored data from this browser',
+    'priv.cleared': 'Stored data deleted from this browser.',
+    'priv.clearFail': 'Could not delete the stored data.',
+    'priv.offCleared': 'Remembering turned off — stored data deleted.',
+    'priv.offFail': 'Remembering turned off, but the stored data could not be deleted.',
+    'priv.onNext': 'Data will be remembered the next time you load a file.',
+    'priv.onFuture': 'Loaded data will be remembered in this browser.',
+    'sec.style': 'Trace appearance', 'style.mode': 'Mode',
+    'style.heat': 'Heatmap (glow)', 'style.lines': 'Uniform lines',
+    'style.heatHint': 'Overlapping trips get brighter — you can see where you go most often.',
+    'style.linesHint': 'Every trip the same width, no glow — this shows reach, not frequency.',
+    'style.color': 'Trace colour', 'style.bright': 'Line brightness', 'style.alpha': 'Line opacity',
+    'style.weight': 'Width',
+    'sec.modes': 'Modes of transport', 'modes.byMode': 'colour by mode',
+    'sec.dates': 'Date range', 'dates.from': 'From', 'dates.to': 'To', 'dates.all': 'Full range',
+    'sec.timelapse': 'Timelapse', 'tl.dur': 'Animation length',
+    'tl.play': 'Play trace build-up', 'tl.stop': 'Stop',
+    'tl.hint': 'The trace grows day by day across the selected date range.',
+    'sec.basemap': 'Basemap',
+    'bm.dark': 'Dark (Strava look)', 'bm.light': 'Light', 'bm.sat': 'Satellite', 'bm.none': 'No map (black)',
+    'bm.countries': 'Highlight visited countries',
+    'btn.fit': 'Fit view', 'btn.png': 'Save PNG', 'btn.clear': 'Clear',
+    'sec.visits': 'Visits', 'st.home': 'visits at home', 'st.work': 'visits at work',
+    'sec.spanRec': 'Distance records',
+    'span.diam': 'Two furthest points (straight line)', 'span.conn': 'Longest continuous trace (reach)',
+    'span.hint': 'Click a metric to show it on the map.',
+    'sec.records': 'Records',
+    'rec.trip': 'longest trip', 'rec.day': 'most in one day',
+    'rec.streak': 'streak of active days', 'rec.month': 'busiest month',
+    'rec.hint': 'Click a record to show that trip on the map.',
+    'sec.geo': 'Geographic reach',
+    'geo.n': 'Furthest north', 'geo.s': 'Furthest south',
+    'geo.e': 'Furthest east', 'geo.w': 'Furthest west',
+    'geo.c': 'Centre of gravity', 'geo.cells': 'Visited areas (~5 km)',
+    'sec.countries': 'Visited countries',
+    'cc.hint': 'Area is the sum of visited cells in that country. Click a country to show it on the map.',
+    'cc.show': 'Show on map', 'cc.loading': 'Loading borders…', 'cc.none': 'No data.',
+    'cc.count': '{0}',
+    'sec.speed': 'Average speed (including stops)', 'speed.none': 'No trip duration data.',
+    'sec.when': 'When you travel',
+    'when.hint': 'Brighter = more kilometres. Rows: days of the week, columns: hours of the day.',
+    'ch.months': 'Kilometres by month', 'ch.years': 'Kilometres by year',
+    'ch.isolated': '{0}: {1} — showing only this period. Click again to go back.',
+    'ch.topYear': 'Best year: ', 'ch.topMonth': 'Best month: ',
+    'ch.clickHint': ' Click a bar to see that period on the map.',
+    'sec.fun': 'For fun',
+    'fun.pl': 'Laps around Poland’s border', 'fun.eq': 'Equator lengths',
+    'fun.moon': 'Distance to the Moon', 'fun.co2': 'Estimated CO₂ (car)',
+    'meta.range': 'Data range: ', 'meta.seg': 'Segments ', 'meta.pts': 'Points ',
+    'meta.files': 'Files ', 'meta.fmt': 'Formats: ',
+    'help.summary': 'Where do I get the data?',
+    'help.body': '<b>From your phone (new):</b> Settings → Location → Location History (Timeline) → Export Timeline data → <i>Timeline.json</i> (the best source).<br><br><b>Google Takeout (older):</b> takeout.google.com → “Location History”. You can drop in the whole <i>.zip</i> or individual JSON files.<br><br>The app detects the format on its own. Nothing is uploaded — all processing happens locally in your browser.',
+    'q.dist': 'total distance', 'q.distRange': 'total distance (selected period)',
+    'q.distGeom': 'distance from trace geometry',
+    'q.trips': 'trips', 'q.days': 'active days', 'q.longest': 'longest trip',
+    'q.countries': 'countries visited', 'q.area': 'area covered',
+    'busy.default': 'Working…', 'busy.reading': 'Reading files…',
+    'busy.cache': 'Reading from local storage…', 'busy.unzip': 'Unpacking ZIP…',
+    'busy.parse': 'Parsing: {0}', 'busy.parseN': 'Parsing ({0}/{1}): {2}',
+    'load.cached': 'Loaded from local storage in {0} s.',
+    'load.noStore': 'Loaded in {0} s. Nothing was stored anywhere.',
+    'load.stored': 'Loaded in {0} s. Remembered in this browser.',
+    'load.storeFail': 'Loaded in {0} s. Could not remember it in this browser.',
+    'err.read': 'Error while loading: {0}',
+    'err.nozip': 'The ZIP library failed to load (no internet?).',
+    'err.noRoutes': 'No trips found in these files. Make sure this is a Google location history export.',
+    'err.png': 'Could not export the image: {0}',
+    'err.borders': 'Could not download country borders (no internet?).',
+    'unit.days': ' days',
+    'mode.car': 'Car', 'mode.walk': 'Walking', 'mode.bike': 'Cycling',
+    'mode.transit': 'Public transport', 'mode.flight': 'Flight', 'mode.unknown': 'Other / unknown',
+    'dow': ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
+    'months': ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
+  },
+};
+function detectLang(){
+  const zap = localStorage.getItem(LANG_PREF);
+  if (zap && I18N[zap]) return zap;
+  return (navigator.language || '').toLowerCase().startsWith('pl') ? 'pl' : 'en';
+}
+let LANG = detectLang();
+let LOCALE = LANG === 'pl' ? 'pl-PL' : 'en-GB';
+function t(key, ...args){
+  const s = (I18N[LANG] && I18N[LANG][key]) ?? I18N.en[key] ?? key;
+  return typeof s === 'string' ? s.replace(/\{(\d)\}/g, (_, i) => args[i] ?? '') : s;
+}
+function num(v){ return v.toLocaleString(LOCALE); }
+
 // ---------- Środki transportu ----------
 const MODES = [
-  { k:'car',     name:'Samochód',    c:'#ff453a' },
-  { k:'walk',    name:'Pieszo',      c:'#32d74b' },
-  { k:'bike',    name:'Rower',       c:'#ffd60a' },
-  { k:'transit', name:'Komunikacja', c:'#0a84ff' },
-  { k:'flight',  name:'Lot',         c:'#bf5af2' },
-  { k:'unknown', name:'Inne / brak', c:'#98a2b3' },
+  { k:'car',     c:'#ff453a' },
+  { k:'walk',    c:'#32d74b' },
+  { k:'bike',    c:'#ffd60a' },
+  { k:'transit', c:'#0a84ff' },
+  { k:'flight',  c:'#bf5af2' },
+  { k:'unknown', c:'#98a2b3' },
 ];
+const modeName = k => t('mode.' + k);
 const MODE_COLOR = Object.fromEntries(MODES.map(m => [m.k, m.c]));
 function activityToMode(type){
   if (!type) return 'unknown';
@@ -717,7 +920,13 @@ const CC_CACHE = new Map();    // rejon 0,05° -> klucz kraju | null (pamięć p
 const CC_MIN = 2;              // min. liczba rejonów (~5 km) z ruchu naziemnego, by uznać kraj za odwiedzony
 // klucz identyfikujący kraj (nazwa administracyjna — zawsze unikalna, bez problemu kodów ISO „-99")
 function ccKey(feat){ const p = feat.properties || {}; return p.ADMIN || p.NAME || p.NAME_LONG || p.SOVEREIGNT || feat.id || '?'; }
-function ccName(feat){ const p = feat.properties || {}; return p.NAME_PL || ccKey(feat); }
+// Natural Earth niesie nazwy w wielu językach. Trzymamy obie i wybieramy dopiero przy
+// wyświetlaniu — inaczej przełączenie języka zostawiłoby listę krajów w poprzednim.
+function ccNames(feat){
+  const p = feat.properties || {}, en = p.NAME_EN || p.NAME || ccKey(feat);
+  return { pl: p.NAME_PL || en, en };
+}
+function ccLabel(c){ return (c.names && c.names[LANG]) || (c.names && c.names.en) || c.key; }
 
 function pointInRing(lng, lat, ring){
   let inside = false;
@@ -759,9 +968,9 @@ function loadCountries(){
         }
         parts.push({ poly, bbox:[miLng,miLat,maLng,maLat] });
       }
-      COUNTRIES.push({ key: ccKey(feat), name: ccName(feat), parts });
+      COUNTRIES.push({ key: ccKey(feat), names: ccNames(feat), parts });
     }
-  }).catch(e => { console.error('Granice krajów — błąd pobierania:', e); countryLoading = null; throw e; });
+  }).catch(e => { console.error('Country borders — download failed:', e); countryLoading = null; throw e; });
   return countryLoading;
 }
 function detectCountries(cellSet){
@@ -784,29 +993,29 @@ function detectCountries(cellSet){
     const b = a.bbox;
     if (lat<b[0])b[0]=lat; if (lng<b[1])b[1]=lng; if (lat>b[2])b[2]=lat; if (lng>b[3])b[3]=lng;
   }
-  const nameOf = new Map(COUNTRIES.map(c => [c.key, c.name]));
+  const namesOf = new Map(COUNTRIES.map(c => [c.key, c.names]));
   for (const [code, a] of acc){
     if (a.n < CC_MIN) continue;                       // odfiltruj pojedyncze rejony przy granicy
     VISITED_CC.add(code);
-    VISITED_LIST.push({ key:code, name: nameOf.get(code) || code, km2:a.km2, bbox:a.bbox });
+    VISITED_LIST.push({ key:code, names: namesOf.get(code), km2:a.km2, bbox:a.bbox });
   }
   VISITED_LIST.sort((x,y) => y.km2 - x.km2);
 }
 function renderCountryList(){
   const host = document.getElementById('countryList'); if (!host) return;
   host.innerHTML = '';
-  document.getElementById('ccCount').textContent = VISITED_LIST.length ? VISITED_LIST.length + ' szt.' : '';
+  document.getElementById('ccCount').textContent = VISITED_LIST.length ? t('cc.count', VISITED_LIST.length) : '';
   if (!VISITED_LIST.length){
-    host.innerHTML = '<div class="metaLine">' + (COUNTRIES ? 'Brak danych.' : 'Wczytywanie granic…') + '</div>';
+    host.innerHTML = '<div class="metaLine">' + (COUNTRIES ? t('cc.none') : t('cc.loading')) + '</div>';
     return;
   }
   for (const c of VISITED_LIST){
     const row = document.createElement('div');
     row.className = 'spanStat clickable';
     row.innerHTML = '<span></span><b></b>';
-    row.firstChild.textContent = c.name;
+    row.firstChild.textContent = ccLabel(c);
     row.lastChild.textContent = fmtArea(c.km2);
-    row.title = 'Pokaż na mapie';
+    row.title = t('cc.show');
     row.addEventListener('click', () => {
       const b = c.bbox;
       map.fitBounds([[b[0],b[1]],[b[2],b[3]]], { padding:[40,40], maxZoom:10 });
@@ -914,17 +1123,17 @@ function e7(v){ return (typeof v === 'number') ? v/1e7 : NaN; }
 function tms(s){ const t = s ? Date.parse(s) : NaN; return Number.isFinite(t) ? t : NaN; }
 
 function parseAny(obj){
-  if (Array.isArray(obj)){ FORMATS.add('Timeline (telefon)'); return parseNewSegments(obj); }
+  if (Array.isArray(obj)){ FORMATS.add('fmt.phone'); return parseNewSegments(obj); }
   if (obj && Array.isArray(obj.semanticSegments)){
-    FORMATS.add('Timeline (telefon)');
+    FORMATS.add('fmt.phone');
     parseNewSegments(obj.semanticSegments);
     if (Array.isArray(obj.rawSignals)) parseRawSignals(obj.rawSignals);
     return;
   }
-  if (obj && Array.isArray(obj.locations)){ FORMATS.add('Takeout Records'); return parseRecords(obj.locations); }
-  if (obj && Array.isArray(obj.timelineObjects)){ FORMATS.add('Takeout Semantic'); return parseSemantic(obj.timelineObjects); }
-  if (obj && Array.isArray(obj.timelineEdits)){ FORMATS.add('Timeline Edits (Takeout)'); return parseTimelineEdits(obj.timelineEdits); }
-  if (obj && Array.isArray(obj.timelinePath)){ FORMATS.add('Timeline (telefon)'); return parseNewSegments([obj]); }
+  if (obj && Array.isArray(obj.locations)){ FORMATS.add('fmt.records'); return parseRecords(obj.locations); }
+  if (obj && Array.isArray(obj.timelineObjects)){ FORMATS.add('fmt.semantic'); return parseSemantic(obj.timelineObjects); }
+  if (obj && Array.isArray(obj.timelineEdits)){ FORMATS.add('fmt.edits'); return parseTimelineEdits(obj.timelineEdits); }
+  if (obj && Array.isArray(obj.timelinePath)){ FORMATS.add('fmt.phone'); return parseNewSegments([obj]); }
 }
 
 // Nowy format telefonowy: segmenty timelinePath / activity / visit
@@ -1239,19 +1448,18 @@ function buildDemo(){
       trip(powrot, t1 + (2 + Math.floor(rnd()*4))*DAY, w.mode, godz*60);
     }
   }
-  FORMATS.add('dane przykładowe');
+  FORMATS.add('demo.format');
 }
 
 function loadDemo(){
-  busy(true, 'Buduję przykład…');
+  busy(true, t('demo.building'));
   clearAll();
   // odłożone o klatkę, żeby przeglądarka zdążyła pokazać komunikat przed liczeniem
   setTimeout(() => {
     buildDemo();
     finalizeLoad();
     DEMO = true;   // dane przykładowe nigdy nie trafiają do pamięci podręcznej — nie ma czego pamiętać
-    cacheNote('Dane przykładowe — wymyślone, nie są niczyją prawdziwą historią. ' +
-              'Wczytaj własny plik, żeby zobaczyć swoje trasy.');
+    cacheNote(t('demo.note'));
   }, 30);
 }
 
@@ -1262,7 +1470,8 @@ function loadDemo(){
 // ZESTAW plików, a nie jeden globalny: strona ma działać dla dowolnego eksportu, więc dwa różne
 // pliki muszą mieć dwa różne wpisy, a podmieniony plik nie może trafić na cudzy wynik.
 const CACHE_DB = 'timeline-heatmap', CACHE_STORE = 'parsed';
-const CACHE_SCHEMA = 2;      // podbić przy każdej zmianie kształtu segmentów
+// 3: w polu formats trzymamy klucze tłumaczeń, a nie gotowe napisy
+const CACHE_SCHEMA = 3;      // podbić przy każdej zmianie kształtu segmentów
 const CACHE_KEEP = 3;        // ile zestawów trzymamy; nadmiar kasujemy od najstarszego
 
 function cacheKey(files){
@@ -1445,14 +1654,10 @@ async function refreshPrivacy(){
   const el = document.getElementById('privStored');
   const s = await cacheStats();
   if (!s.sets){
-    el.textContent = rememberOn()
-      ? 'Na razie nic nie jest zapisane — dane trafią tu po wczytaniu pliku.'
-      : 'Nic nie jest zapisywane na tym urządzeniu.';
+    el.textContent = rememberOn() ? t('priv.pending') : t('priv.none');
   } else {
-    // navigator.storage.estimate() podaje zużycie całej domeny, nie samych zestawów — stąd „około"
-    const ile = s.sets === 1 ? '1 zestaw danych' : `${s.sets} zestawy danych`;
-    el.textContent = `Na tym urządzeniu zapisano ${ile}` +
-      (s.mb ? `, łącznie ${s.mb.toFixed(1)} MB.` : '.');
+    const ile = s.sets === 1 ? t('priv.stored1') : t('priv.storedN', s.sets);
+    el.textContent = ile + (s.mb ? t('priv.storedSize', s.mb.toFixed(1)) : '.');
   }
   document.getElementById('cacheClear').style.display = s.sets ? '' : 'none';
 }
@@ -1479,53 +1684,53 @@ async function handleFiles(fileList){
   // ale dane przykładowe muszą zniknąć — inaczej użytkownik zobaczyłby własne trasy
   // wymieszane z wymyślonymi i taka mieszanka trafiłaby jeszcze do pamięci podręcznej.
   if (DEMO) clearAll();
-  busy(true, 'Wczytywanie plików…');
+  busy(true, t('busy.reading'));
   cacheNote('');
   const key = cacheKey(files);
   const t0 = performance.now();
   try {
     const hit = rememberOn() ? await cacheLoad(key) : null;
     if (hit){
-      busy(true, 'Odczyt z pamięci podręcznej…');
+      busy(true, t('busy.cache'));
       unpackData(hit);
       finalizeLoad(true);
-      cacheNote(`Wczytano z pamięci podręcznej w ${((performance.now()-t0)/1000).toFixed(1)} s.`);
+      cacheNote(t('load.cached', ((performance.now()-t0)/1000).toFixed(1)));
       return;
     }
-  } catch (e){ console.warn('Pamięć podręczna niedostępna przy odczycie:', e); }
+  } catch (e){ console.warn('Local cache unavailable on read:', e); }
   try {
     for (const f of files){
       const name = f.name.toLowerCase();
       if (name.endsWith('.zip')) await handleZip(f);
       else if (name.endsWith('.json')){
-        busy(true, 'Parsowanie: ' + f.name);
+        busy(true, t('busy.parse', f.name));
         await parseTextSafely(await f.text(), f.name);
         FILES++;
       }
     }
-  } catch (err){ console.error(err); alert('Błąd podczas wczytywania: ' + err.message); }
+  } catch (err){ console.error(err); alert(t('err.read', err.message)); }
   const parseS = ((performance.now()-t0)/1000).toFixed(1);
   finalizeLoad();
   if (!SEGMENTS.length) return;
   if (!rememberOn()){
-    cacheNote(`Wczytano w ${parseS} s. Dane nie zostały nigdzie zapisane.`);
+    cacheNote(t('load.noStore', parseS));
     return;
   }
   // Zapis nie może blokować mapy — użytkownik ma już wynik na ekranie.
   cacheSave(key).then(
-    () => { cacheNote(`Wczytano w ${parseS} s. Zapamiętano w tej przeglądarce.`); refreshPrivacy(); },
-    e  => { console.warn('Nie udało się zapisać pamięci podręcznej:', e);
-            cacheNote(`Wczytano w ${parseS} s. Nie udało się zapamiętać w tej przeglądarce.`); });
+    () => { cacheNote(t('load.stored', parseS)); refreshPrivacy(); },
+    e  => { console.warn('Could not write local cache:', e);
+            cacheNote(t('load.storeFail', parseS)); });
 }
 async function handleZip(file){
-  if (typeof JSZip === 'undefined'){ alert('Biblioteka ZIP nie została załadowana (brak internetu?).'); return; }
-  busy(true, 'Rozpakowywanie ZIP…');
+  if (typeof JSZip === 'undefined'){ alert(t('err.nozip')); return; }
+  busy(true, t('busy.unzip'));
   const zip = await JSZip.loadAsync(file);
   const entries = Object.values(zip.files).filter(e => !e.dir && e.name.toLowerCase().endsWith('.json'));
   let i = 0;
   for (const e of entries){
     i++;
-    busy(true, `Parsowanie (${i}/${entries.length}): ${e.name.split('/').pop()}`);
+    busy(true, t('busy.parseN', i, entries.length, e.name.split('/').pop()));
     await parseTextSafely(await e.async('string'), e.name);
     FILES++;
     if (i % 15 === 0) await new Promise(r => setTimeout(r));
@@ -1534,7 +1739,7 @@ async function handleZip(file){
 async function parseTextSafely(txt, name){
   let obj;
   try { obj = JSON.parse(txt); }
-  catch (e){ console.warn('Pominięto (niepoprawny JSON):', name); return; }
+  catch (e){ console.warn('Skipped (invalid JSON):', name); return; }
   parseAny(obj);
 }
 
@@ -1575,7 +1780,7 @@ function finalizeLoad(fromCache){
   busy(false);
   if (SEGMENTS.length && isNarrow()) setPanelOpen(false);   // na telefonie oddaj ekran mapie
   if (SEGMENTS.length) fitToData();
-  else alert('Nie znaleziono żadnych tras w tych plikach. Upewnij się, że to eksport historii lokalizacji Google.');
+  else alert(t('err.noRoutes'));
 }
 
 function fitToData(){
@@ -1625,14 +1830,13 @@ function fmtDate(ms){ const d=new Date(ms);
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function fmtKm(m){
   const km = m/1000;
-  if (km >= 10) return Math.round(km).toLocaleString('pl-PL') + ' km';
+  if (km >= 10) return num(Math.round(km)) + ' km';
   return km.toFixed(1) + ' km';
 }
-const MONTHS_PL = ['sty','lut','mar','kwi','maj','cze','lip','sie','wrz','paź','lis','gru'];
 function dayIndex(ts){ const d = new Date(ts); return Math.floor(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())/DAY); }
 function monthKey(ts){ const d = new Date(ts); return d.getFullYear()*12 + d.getMonth(); }
-function monthLabel(k){ return MONTHS_PL[((k%12)+12)%12] + ' ' + String(Math.floor(k/12)).slice(2); }
-function fmtArea(a){ return a >= 100 ? Math.round(a).toLocaleString('pl-PL')+' km²' : a.toFixed(1)+' km²'; }
+function monthLabel(k){ return t('months')[((k%12)+12)%12] + ' ' + String(Math.floor(k/12)).slice(2); }
+function fmtArea(a){ return a >= 100 ? num(Math.round(a))+' km²' : a.toFixed(1)+' km²'; }
 function longestStreak(idxSet){
   const arr = [...idxSet].sort((a,b)=>a-b);
   let best = arr.length ? 1 : 0, cur = 1;
@@ -1674,7 +1878,7 @@ function startTimelapse(){
   TL = { from:r.from, to:r.to, durMs: (+document.getElementById('tlDur').value)*1000,
          start: performance.now(), timer: null };
   heat.setFilter({ from:r.from, to:r.from, modes:new Set(visibleModes) });   // czysta kanwa na start
-  document.getElementById('tlPlay').textContent = 'Zatrzymaj';
+  document.getElementById('tlPlay').textContent = t('tl.stop');
   tlStep();
 }
 function tlStep(){
@@ -1700,8 +1904,8 @@ document.addEventListener('visibilitychange', () => {
 function stopTimelapse(refresh){
   if (!TL) return;
   clearTimeout(TL.timer); TL = null;
-  document.getElementById('tlPlay').textContent = 'Odtwórz narastanie tras';
-  document.getElementById('tlLbl').textContent = 'Ślad narasta dzień po dniu w wybranym zakresie dat.';
+  document.getElementById('tlPlay').textContent = t('tl.play');
+  document.getElementById('tlLbl').textContent = t('tl.hint');
   if (refresh) applyFilter();
 }
 
@@ -1791,14 +1995,14 @@ function updateGeoStats(){
     footprint += (CELL*KMDEG) * (CELL*KMDEG*Math.cos(lat*Math.PI/180));
   }
   document.getElementById('gArea').textContent  = cells.size ? fmtArea(footprint) : '—';
-  document.getElementById('gCells').textContent = cnt ? cells.size.toLocaleString('pl-PL') : '—';
+  document.getElementById('gCells').textContent = cnt ? num(cells.size) : '—';
 
   // Odwiedzone kraje (potrzebne granice z CDN — dociągane leniwie)
   const cEl = document.getElementById('gCountries');
   if (!cnt){ cEl.textContent = '—'; VISITED_CC.clear(); VISITED_LIST = []; }
   else if (COUNTRIES){
     detectCountries(cells);
-    cEl.textContent = VISITED_CC.size.toLocaleString('pl-PL');
+    cEl.textContent = num(VISITED_CC.size);
     refreshCountryStyles();
   } else {
     cEl.textContent = '…';
@@ -1835,7 +2039,7 @@ function drawDowHour(r, inRange){
   cv.width = W*dpr; cv.height = H*dpr; cv.style.height = H+'px';
   const ctx = cv.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0);
   ctx.clearRect(0,0,W,H);
-  const cellW = (W-labelW)/24, dows = ['Pn','Wt','Śr','Cz','Pt','So','Nd'];
+  const cellW = (W-labelW)/24, dows = t('dow');
   ctx.font = '9px -apple-system,Segoe UI,sans-serif'; ctx.textBaseline = 'middle';
   for (let dw=0; dw<7; dw++){
     ctx.fillStyle = '#6b7482'; ctx.textAlign = 'left';
@@ -1886,14 +2090,14 @@ function drawMonthChart(r, inRange){
     for (let y=y0; y<=y1; y++)
       bars.push({ label:String(y), short:"'"+String(y).slice(2), v: ym.get(y)||0, key:'y'+y,
                   from: new Date(y,0,1).getTime(), to: new Date(y+1,0,1).getTime()-1 });
-    if (hdr) hdr.textContent = 'Kilometry rocznie';
+    if (hdr) hdr.textContent = t('ch.years');
   } else {
     for (let k=mKeys[0]; k<=mKeys[mKeys.length-1]; k++){
       const y = Math.floor(k/12), mo = ((k%12)+12)%12;
       bars.push({ label:monthLabel(k), short:monthLabel(k), v: m.get(k)||0, key:'m'+k,
                   from: new Date(y,mo,1).getTime(), to: new Date(y,mo+1,1).getTime()-1 });
     }
-    if (hdr) hdr.textContent = 'Kilometry miesiącami';
+    if (hdr) hdr.textContent = t('ch.months');
   }
   let maxV = 0, maxLabel = ''; for (const b of bars) if (b.v>maxV){ maxV=b.v; maxLabel=b.label; }
   CHART = { bars, yearly, maxV, maxLabel };
@@ -1947,9 +2151,9 @@ function paintMonthChart(){
   if (lbl){
     const sel = selKey ? bars.find(b => b.key === selKey) : null;
     lbl.textContent = sel
-      ? sel.label + ': ' + fmtKm(sel.v*1000) + ' — na mapie tylko ten okres. Kliknij ponownie, aby wrócić.'
-      : (yearly ? 'Najwięcej w roku: ' : 'Najwięcej w miesiącu: ') + fmtKm(maxV*1000)
-        + (maxLabel ? ' (' + maxLabel + ').' : '.') + ' Kliknij słupek, aby zobaczyć ten okres na mapie.';
+      ? t('ch.isolated', sel.label, fmtKm(sel.v*1000))
+      : (yearly ? t('ch.topYear') : t('ch.topMonth')) + fmtKm(maxV*1000)
+        + (maxLabel ? ' (' + maxLabel + ').' : '.') + t('ch.clickHint');
   }
 }
 
@@ -2110,11 +2314,11 @@ function updateStats(r){
   for (const v of VISITS){ if (!inRange(v.t)) continue; if (v.type==='home') home++; else if (v.type==='work') work++; }
 
   document.getElementById('stDist').textContent = fmtKm(total);
-  document.getElementById('stTrips').textContent = trips.toLocaleString('pl-PL');
-  document.getElementById('stDays').textContent  = days.size.toLocaleString('pl-PL');
-  document.getElementById('stHome').textContent  = home.toLocaleString('pl-PL');
-  document.getElementById('stWork').textContent  = work.toLocaleString('pl-PL');
-  document.getElementById('stDistLbl').textContent = haveActivities ? 'łączny dystans (wybrany okres)' : 'dystans z geometrii tras';
+  document.getElementById('stTrips').textContent = num(trips);
+  document.getElementById('stDays').textContent  = num(days.size);
+  document.getElementById('stHome').textContent  = num(home);
+  document.getElementById('stWork').textContent  = num(work);
+  document.getElementById('stDistLbl').textContent = haveActivities ? t('q.distRange') : t('q.distGeom');
 
   for (const m of MODES){
     const el = document.getElementById('km-'+m.k);
@@ -2141,7 +2345,7 @@ function updateStats(r){
   document.getElementById('statDay').classList.toggle('clickable', !!RECORD.day);
   document.getElementById('qTrip').classList.toggle('clickable', !!RECORD.trip);
   const streak = longestStreak(days);
-  document.getElementById('rStreak').textContent = streak > 0 ? streak.toLocaleString('pl-PL')+' dni' : '—';
+  document.getElementById('rStreak').textContent = streak > 0 ? num(streak)+t('unit.days') : '—';
   let bestMonthKm = 0, bestMonthK = null;
   for (const [mk, km] of monthKm) if (km > bestMonthKm){ bestMonthKm = km; bestMonthK = mk; }
   const rMonth = document.getElementById('rMonth');
@@ -2158,11 +2362,11 @@ function updateStats(r){
     const kmh = (dist[m.k]/1000) / (spDur[m.k]/3600000);
     const row = document.createElement('div');
     row.className = 'spanStat';
-    row.innerHTML = `<span><span class="spdDot" style="background:${m.c}"></span>${m.name}</span>`
+    row.innerHTML = `<span><span class="spdDot" style="background:${m.c}"></span>${modeName(m.k)}</span>`
                   + `<b>${kmh.toFixed(0)} km/h</b>`;
     spHost.appendChild(row);
   }
-  if (!anySpeed) spHost.innerHTML = '<div class="metaLine">Brak danych o czasie podróży.</div>';
+  if (!anySpeed) spHost.innerHTML = '<div class="metaLine">' + t('speed.none') + '</div>';
 
   // --- Dla zabawy (ekwiwalenty) ---
   const km = total/1000;
@@ -2171,12 +2375,12 @@ function updateStats(r){
   document.getElementById('funMoon').textContent = km > 0 ? (km/384400*100).toFixed(2)+'%' : '—';
   const co2t = (dist.car/1000) * 0.12 / 1000;   // ~0,12 kg CO₂/km, w tonach
   document.getElementById('funCO2').textContent = dist.car > 0
-    ? (co2t >= 1 ? co2t.toFixed(1)+' t' : Math.round(co2t*1000).toLocaleString('pl-PL')+' kg') : '—';
+    ? (co2t >= 1 ? co2t.toFixed(1)+' t' : num(Math.round(co2t*1000))+' kg') : '—';
 
-  document.getElementById('sSeg').textContent   = SEGMENTS.length.toLocaleString('pl-PL');
-  document.getElementById('sPts').textContent   = TOTAL_PTS.toLocaleString('pl-PL');
-  document.getElementById('sFiles').textContent = FILES.toLocaleString('pl-PL');
-  document.getElementById('sFmt').textContent   = FORMATS.size ? [...FORMATS].join(', ') : '—';
+  document.getElementById('sSeg').textContent   = num(SEGMENTS.length);
+  document.getElementById('sPts').textContent   = num(TOTAL_PTS);
+  document.getElementById('sFiles').textContent = num(FILES);
+  document.getElementById('sFmt').textContent   = FORMATS.size ? [...FORMATS].map(f => t(f)).join(', ') : '—';
   document.getElementById('stRange').textContent = DATA_MIN!=null ? (fmtDate(DATA_MIN)+' → '+fmtDate(DATA_MAX)) : '—';
 }
 
@@ -2189,7 +2393,7 @@ function buildModeRows(){
     row.innerHTML =
       `<input type="checkbox" data-mode="${m.k}" ${visibleModes.has(m.k)?'checked':''}>` +
       `<span class="sw" style="background:${m.c}"></span>` +
-      `<span class="mName">${m.name}</span>` +
+      `<span class="mName">${modeName(m.k)}</span>` +
       `<span class="mKm" id="km-${m.k}"></span>`;
     const cb = row.querySelector('input');
     cb.addEventListener('change', () => {
@@ -2241,12 +2445,12 @@ function exportPNG(){
           a.href = url; a.download = 'heatmapa.png'; a.click();
           setTimeout(() => URL.revokeObjectURL(url), 10000);
         })
-        .catch(e => { console.error(e); alert('Nie udało się wyeksportować obrazu: ' + e.message); })
+        .catch(e => { console.error(e); alert(t('err.png', e.message)); })
         .then(() => busy(false));
       return;
     } catch (e){
       console.error(e);
-      alert('Nie udało się wyeksportować obrazu: ' + e.message);
+      alert(t('err.png', e.message));
     }
     busy(false);
   }, 60);
@@ -2270,7 +2474,7 @@ function isNarrow(){ return window.matchMedia('(max-width: 680px)').matches; }
 function setPanelOpen(open){
   document.body.classList.toggle('panelHidden', !open);
   const b = $('panelToggle');
-  b.textContent = open ? 'Zamknij' : 'Ustawienia';
+  b.textContent = open ? t('panel.close') : t('panel.open');
   b.setAttribute('aria-expanded', String(open));
   if (open) syncPanelHeight();
 }
@@ -2283,11 +2487,11 @@ setPanelOpen(true);
 // więc pojedynczy przejazd i sto przejazdów mają tę samą grubość (styl StatsHunters).
 const STYLE_MODES = {
   heat:  { color:'#ff7a1a', opacity:0.14, weight:1.6, additive:true,  basemap:'dark',
-           opLbl:'Jasność linii',
-           hint:'Nakładające się trasy rozjaśniają się — widać, którędy jeździsz najczęściej.' },
+           opLblKey:'style.bright',
+           hintKey:'style.heatHint' },
   lines: { color:'#ff1f1f', opacity:0.45, weight:2.2, additive:false, basemap:'light',
-           opLbl:'Krycie linii',
-           hint:'Każda trasa tą samą grubością, bez świecenia — liczy się zasięg, nie częstotliwość.' },
+           opLblKey:'style.alpha',
+           hintKey:'style.linesHint' },
 };
 let styleMode = 'heat';
 // keepBasemap — przy starcie, żeby nie przeładowywać kafelków ustawionych już przez setBasemap()
@@ -2299,8 +2503,8 @@ function applyStyleMode(key, keepBasemap){
   $('color').value   = p.color;
   $('opacity').value = p.opacity; $('opVal').textContent = p.opacity.toFixed(2);
   $('weight').value  = p.weight;  $('wVal').textContent  = p.weight.toFixed(1);
-  $('opLbl').textContent   = p.opLbl;
-  $('styleHint').textContent = p.hint;
+  $('opLbl').textContent     = t(p.opLblKey);
+  $('styleHint').textContent = t(p.hintKey);
   if (!keepBasemap && curBasemap !== p.basemap){ setBasemap(p.basemap); $('basemap').value = p.basemap; }
 }
 $('styleMode').addEventListener('change', e => applyStyleMode(e.target.value));
@@ -2319,7 +2523,7 @@ $('showCountries').addEventListener('change', e => {
   if (countryShow){
     loadCountries().then(() => { renderCountryLayer(); refreshCountryStyles(); })
                    .catch(() => { $('showCountries').checked = false; countryShow = false;
-                                  alert('Nie udało się pobrać granic krajów (brak internetu?).'); });
+                                  alert(t('err.borders')); });
   } else renderCountryLayer();
 });
 $('fit').addEventListener('click', fitToData);
@@ -2328,8 +2532,8 @@ $('clear').addEventListener('click', clearAll);
 $('cacheClear').addEventListener('click', async () => {
   try {
     await cacheWipe();
-    cacheNote('Usunięto zapamiętane dane z tej przeglądarki.');
-  } catch (e){ console.warn(e); cacheNote('Nie udało się usunąć zapamiętanych danych.'); }
+    cacheNote(t('priv.cleared'));
+  } catch (e){ console.warn(e); cacheNote(t('priv.clearFail')); }
   refreshPrivacy();
 });
 $('demo').addEventListener('click', loadDemo);
@@ -2346,12 +2550,12 @@ $('remember').addEventListener('change', async e => {
   const on = e.target.checked;
   localStorage.setItem(REMEMBER_PREF, on ? '1' : '0');
   if (!on){
-    try { await cacheWipe(); cacheNote('Zapamiętywanie wyłączone — usunięto zapisane dane.'); }
-    catch (err){ console.warn(err); cacheNote('Zapamiętywanie wyłączone, ale nie udało się usunąć zapisanych danych.'); }
+    try { await cacheWipe(); cacheNote(t('priv.offCleared')); }
+    catch (err){ console.warn(err); cacheNote(t('priv.offFail')); }
   } else {
     cacheNote(SEGMENTS.length
-      ? 'Dane zostaną zapamiętane przy następnym wczytaniu pliku.'
-      : 'Wczytane dane będą zapamiętywane w tej przeglądarce.');
+      ? t('priv.onNext')
+      : t('priv.onFuture'));
   }
   refreshPrivacy();
 });
@@ -2400,15 +2604,48 @@ $('monthChart').addEventListener('click', (e) => {
   toggleChartBar(Math.max(0, Math.min(CHART.bars.length - 1, i)));
 });
 
+// ---------- Zastosowanie języka ----------
+// Teksty statyczne siedzą w atrybutach data-i18n, więc przełączenie języka nie wymaga
+// przeładowania strony — a wszystko, co narysowane (wykresy, lista krajów, statystyki)
+// trzeba przerysować, bo etykiety powstały w poprzednim języku.
+function applyI18n(){
+  document.documentElement.lang = LANG;
+  for (const el of document.querySelectorAll('[data-i18n]'))
+    el.textContent = t(el.getAttribute('data-i18n'));
+  for (const el of document.querySelectorAll('[data-i18n-html]'))
+    el.innerHTML = t(el.getAttribute('data-i18n-html'));
+  $('lang').value = LANG;
+  $('busyTxt').textContent = t('busy.default');
+  $('panelToggle').textContent = document.body.classList.contains('panelHidden')
+    ? t('panel.open') : t('panel.close');
+  if (!TL){ $('tlPlay').textContent = t('tl.play'); $('tlLbl').textContent = t('tl.hint'); }
+  applyStyleMode(styleMode, true);
+}
+function setLang(kod){
+  if (!I18N[kod] || kod === LANG) return;
+  LANG = kod;
+  LOCALE = LANG === 'pl' ? 'pl-PL' : 'en-GB';
+  localStorage.setItem(LANG_PREF, kod);
+  applyI18n();
+  renderCountryList();
+  refreshPrivacy();
+  if (SEGMENTS.length){
+    buildModeRows();              // nazwy środków transportu
+    applyFilter();                // statystyki, wykresy i etykiety pod nimi
+  }
+}
+$('lang').addEventListener('change', e => setLang(e.target.value));
+applyI18n();
+
 const EXT_POI = [
-  ['gxN','n','Najdalej na północ'], ['gxS','s','Najdalej na południe'],
-  ['gxE','e','Najdalej na wschód'], ['gxW','w','Najdalej na zachód'],
-  ['gxC','centroid','Środek ciężkości'],
+  ['gxN','n','geo.n'], ['gxS','s','geo.s'],
+  ['gxE','e','geo.e'], ['gxW','w','geo.w'],
+  ['gxC','centroid','geo.c'],
 ];
-for (const [id, key, label] of EXT_POI){
+for (const [id, key, labelKey] of EXT_POI){
   $(id).addEventListener('click', () => {
     const p = GEO.ext && GEO.ext[key];
-    if (p) showPoint(p, label);
+    if (p) showPoint(p, t(labelKey));      // etykieta liczona przy kliknięciu, więc zgodna z językiem
   });
 }
 </script>
