@@ -390,12 +390,15 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"
         integrity="sha512-XMVd28F1oH/O71fzwBnV7HucLxVwtxf26XV8P4wPk26EDxuGZ91N8bsOttmnomcCD3CS5ZMRL50H0GgOHvegtg=="
         crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-<script>
+<script id="app">
 /* ---------------------------------------------------------------------------
    Google Timeline Heatmap — pojedynczy plik, wszystko client-side.
+   Fragmenty między /*<<CORE*​/ a /*CORE>>*​/ są czytane z tego skryptu i użyte
+   jako źródło wątku roboczego — patrz coreSource().
    --------------------------------------------------------------------------- */
 
 const DAY = 86400000;
+const JSZIP_URL = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
 
 // ---------- Języki ----------
 // Domyślnie angielski, polski tylko dla przeglądarek ustawionych na polski — strona ma być
@@ -484,6 +487,7 @@ const I18N = {
     'q.countries': 'odwiedzone kraje', 'q.area': 'odwiedzony obszar',
     'busy.default': 'Przetwarzanie…', 'busy.reading': 'Wczytywanie plików…',
     'busy.cache': 'Odczyt z pamięci podręcznej…', 'busy.unzip': 'Rozpakowywanie ZIP…',
+    'busy.finalize': 'Przygotowywanie mapy…',
     'busy.parse': 'Parsowanie: {0}', 'busy.parseN': 'Parsowanie ({0}/{1}): {2}',
     'load.cached': 'Wczytano z pamięci podręcznej w {0} s.',
     'load.noStore': 'Wczytano w {0} s. Dane nie zostały nigdzie zapisane.',
@@ -582,6 +586,7 @@ const I18N = {
     'q.countries': 'countries visited', 'q.area': 'area covered',
     'busy.default': 'Working…', 'busy.reading': 'Reading files…',
     'busy.cache': 'Reading from local storage…', 'busy.unzip': 'Unpacking ZIP…',
+    'busy.finalize': 'Preparing the map…',
     'busy.parse': 'Parsing: {0}', 'busy.parseN': 'Parsing ({0}/{1}): {2}',
     'load.cached': 'Loaded from local storage in {0} s.',
     'load.noStore': 'Loaded in {0} s. Nothing was stored anywhere.',
@@ -613,6 +618,7 @@ function t(key, ...args){
 function num(v){ return v.toLocaleString(LOCALE); }
 
 // ---------- Środki transportu ----------
+/*<<CORE*/
 const MODES = [
   { k:'car',     c:'#ff453a' },
   { k:'walk',    c:'#32d74b' },
@@ -621,8 +627,6 @@ const MODES = [
   { k:'flight',  c:'#bf5af2' },
   { k:'unknown', c:'#98a2b3' },
 ];
-const modeName = k => t('mode.' + k);
-const MODE_COLOR = Object.fromEntries(MODES.map(m => [m.k, m.c]));
 function activityToMode(type){
   if (!type) return 'unknown';
   type = String(type).toUpperCase();
@@ -642,6 +646,9 @@ function refineMode(mode, distM, t0, t1){
   if (km > 1500 || kmh > 300) return 'flight';
   return mode;
 }
+/*CORE>>*/
+const modeName = k => t('mode.' + k);
+const MODE_COLOR = Object.fromEntries(MODES.map(m => [m.k, m.c]));
 
 // ---------- Mapa i podkłady ----------
 // Widok startowy obejmuje cały świat — dane mogą być z dowolnego miejsca.
@@ -1065,6 +1072,7 @@ function renderCountryLayer(){
 function refreshCountryStyles(){ if (countryLayer) countryLayer.setStyle(styleCountry); }
 
 // ---------- Model danych ----------
+/*<<CORE*/
 // Segment = { c:Float32Array[lat,lng,...], b:[minLat,minLng,maxLat,maxLng], t:startMs, mode, gd:dystansKm }
 let SEGMENTS = [];
 let ACTIVITIES = [];   // {t, te, mode, dist(m)}  — do statystyk i przypisania trybu trasom
@@ -1297,6 +1305,24 @@ function resolveModes(){
   }
 }
 
+// Prekalkulacje robione po sparsowaniu. Wydzielone, bo wątek roboczy liczy je u siebie —
+// dzięki temu wątek główny dostaje dane gotowe do rysowania i nic już nie liczy.
+function computeHulls(){
+  for (const s of SEGMENTS){
+    const pts = [];
+    for (let i=0;i<s.c.length;i+=2) pts.push([s.c[i], s.c[i+1]]);
+    s.hull = convexHull(pts);
+  }
+}
+function computeRange(){
+  let mn=Infinity, mx=-Infinity;
+  for (const s of SEGMENTS){ if (Number.isFinite(s.t)){ if(s.t<mn)mn=s.t; if(s.t>mx)mx=s.t; } }
+  if (Number.isFinite(mn)){ DATA_MIN = dayStart(mn); DATA_MAX = dayStart(mx); }
+  else { DATA_MIN = DATA_MAX = null; }
+}
+function dayStart(ms){ const d = new Date(ms); d.setHours(0,0,0,0); return d.getTime(); }
+/*CORE>>*/
+
 // ---------- Dane przykładowe ----------
 // Generowane w locie, a nie doklejone jako plik: aplikacja ma zostać jednym plikiem HTML,
 // a zestaw gęsty na tyle, żeby heatmapa wyglądała jak prawdziwa, ważyłby kilka megabajtów.
@@ -1498,8 +1524,6 @@ function loadDemo(){
 // ZESTAW plików, a nie jeden globalny: strona ma działać dla dowolnego eksportu, więc dwa różne
 // pliki muszą mieć dwa różne wpisy, a podmieniony plik nie może trafić na cudzy wynik.
 const CACHE_DB = 'timeline-heatmap', CACHE_STORE = 'parsed';
-// 3: w polu formats trzymamy klucze tłumaczeń, a nie gotowe napisy
-const CACHE_SCHEMA = 3;      // podbić przy każdej zmianie kształtu segmentów
 const CACHE_KEEP = 3;        // ile zestawów trzymamy; nadmiar kasujemy od najstarszego
 
 function cacheKey(files){
@@ -1535,6 +1559,10 @@ function idbRun(db, mode, fn){
 
 // Zamiast 31 tys. drobnych obiektów zapisujemy kilka płaskich tablic typowanych — IndexedDB
 // klonuje je jednym ciągiem zamiast element po elemencie, więc i zapis, i odczyt są dużo tańsze.
+// Tym samym formatem wątek roboczy oddaje wynik parsowania (przenoszony bez kopiowania).
+/*<<CORE*/
+const CACHE_SCHEMA = 3;      // podbić przy każdej zmianie kształtu segmentów; 3: formats trzyma klucze
+const VISIT_TYPES = ['home','work','other'];
 function packData(){
   const n = SEGMENTS.length, mIdx = new Map(MODES.map((m,i) => [m.k, i]));
   const unk = mIdx.get('unknown');
@@ -1577,7 +1605,13 @@ function packData(){
            aTimes, aDist, aMode, vTimes, vType,
            totalPts:TOTAL_PTS, files:FILES, formats:[...FORMATS], dataMin:DATA_MIN, dataMax:DATA_MAX };
 }
-const VISIT_TYPES = ['home','work','other'];
+// bufory do przeniesienia bez kopiowania przy wysyłce z wątku roboczego
+function packBuffers(p){
+  const b = [];
+  for (const v of Object.values(p)) if (ArrayBuffer.isView(v)) b.push(v.buffer);
+  return b;
+}
+/*CORE>>*/
 function unpackData(r){
   const n = r.n, MK = MODES.map(m => m.k);
   SEGMENTS = new Array(n);
@@ -1705,6 +1739,74 @@ async function cacheWipe(){
   });
 }
 
+// ---------- Parsowanie w wątku roboczym ----------
+// JSON.parse jest synchroniczny: przy dużym eksporcie zamraża kartę na kilka sekund i nie da
+// się w tym czasie pokazać postępu. Wątek roboczy zdejmuje to z wątku głównego.
+// Źródło wątku składamy z fragmentów TEGO SAMEGO skryptu, oznaczonych znacznikami CORE —
+// dzięki temu parser istnieje w jednej kopii i nie może się rozjechać między wątkami.
+let WORKER_SRC = null;
+function coreSource(){
+  if (WORKER_SRC) return WORKER_SRC;
+  const src = document.getElementById('app').textContent;
+  const re = /\/\*<<CORE\*\/([\s\S]*?)\/\*CORE>>\*\//g;
+  let out = '', m;
+  while ((m = re.exec(src))) out += m[1] + '\n';
+  if (!out) return null;
+  return (WORKER_SRC = out + `
+self.onmessage = async (e) => {
+  const pliki = e.data.pliki;
+  try {
+    for (let i = 0; i < pliki.length; i++){
+      const f = pliki[i];
+      self.postMessage({ typ:'postep', i, n:pliki.length, nazwa:f.name });
+      const nazwa = (f.name || '').toLowerCase();
+      if (nazwa.endsWith('.zip')){
+        if (typeof JSZip === 'undefined') self.importScripts(e.data.jszip);
+        const zip = await JSZip.loadAsync(f);
+        const wpisy = Object.values(zip.files).filter(x => !x.dir && x.name.toLowerCase().endsWith('.json'));
+        for (let k = 0; k < wpisy.length; k++){
+          self.postMessage({ typ:'postep', i, n:pliki.length, nazwa:wpisy[k].name.split('/').pop(), k:k+1, kn:wpisy.length });
+          try { parseAny(JSON.parse(await wpisy[k].async('string'))); } catch (err){}
+          FILES++;
+        }
+      } else if (nazwa.endsWith('.json')){
+        try { parseAny(JSON.parse(await f.text())); } catch (err){}
+        FILES++;
+      }
+    }
+    self.postMessage({ typ:'etap', co:'finalize' });
+    resolveModes(); computeHulls(); computeRange();
+    const pak = packData();
+    self.postMessage({ typ:'gotowe', pak }, packBuffers(pak));
+  } catch (err){
+    self.postMessage({ typ:'blad', msg: String(err && err.message || err) });
+  }
+};
+`);
+}
+// Zwraca spakowane dane albo null, gdy wątek jest niedostępny (stara przeglądarka, CSP,
+// brak sieci przy ZIP-ie) — wtedy wywołujący parsuje po staremu na wątku głównym.
+function parseInWorker(files, onPostep){
+  return new Promise(res => {
+    let w = null, url = null;
+    const sprzataj = () => { try { w && w.terminate(); } catch(e){} if (url) URL.revokeObjectURL(url); };
+    try {
+      const src = coreSource();
+      if (!src || typeof Worker === 'undefined') return res(null);
+      url = URL.createObjectURL(new Blob([src], { type:'text/javascript' }));
+      w = new Worker(url);
+    } catch (e){ console.warn('Worker niedostępny:', e); sprzataj(); return res(null); }
+    w.onerror = e => { console.warn('Worker padł:', e.message || e); sprzataj(); res(null); };
+    w.onmessage = ev => {
+      const d = ev.data;
+      if (d.typ === 'postep' || d.typ === 'etap'){ onPostep(d); return; }
+      sprzataj();
+      res(d.typ === 'gotowe' ? d.pak : null);
+    };
+    w.postMessage({ pliki: files, jszip: JSZIP_URL });
+  });
+}
+
 async function handleFiles(fileList){
   const files = Array.from(fileList);
   if (!files.length) return;
@@ -1726,19 +1828,31 @@ async function handleFiles(fileList){
       return;
     }
   } catch (e){ console.warn('Local cache unavailable on read:', e); }
-  try {
-    for (const f of files){
-      const name = f.name.toLowerCase();
-      if (name.endsWith('.zip')) await handleZip(f);
-      else if (name.endsWith('.json')){
-        busy(true, t('busy.parse', f.name));
-        await parseTextSafely(await f.text(), f.name);
-        FILES++;
+
+  // Najpierw wątek roboczy; gdy niedostępny, ta sama robota leci na wątku głównym.
+  const pak = await parseInWorker(files, d => {
+    if (d.typ === 'etap'){ busy(true, t('busy.finalize')); return; }
+    busy(true, d.kn ? t('busy.parseN', d.k, d.kn, d.nazwa)
+                    : (files.length > 1 ? t('busy.parseN', d.i+1, d.n, d.nazwa) : t('busy.parse', d.nazwa)));
+  });
+  if (pak){
+    unpackData(pak);
+    finalizeLoad(true);            // tryby, otoczki i zakres dat policzył już wątek roboczy
+  } else {
+    try {
+      for (const f of files){
+        const name = f.name.toLowerCase();
+        if (name.endsWith('.zip')) await handleZip(f);
+        else if (name.endsWith('.json')){
+          busy(true, t('busy.parse', f.name));
+          await parseTextSafely(await f.text(), f.name);
+          FILES++;
+        }
       }
-    }
-  } catch (err){ console.error(err); alert(t('err.read', err.message)); }
+    } catch (err){ console.error(err); alert(t('err.read', err.message)); }
+    finalizeLoad();
+  }
   const parseS = ((performance.now()-t0)/1000).toFixed(1);
-  finalizeLoad();
   if (!SEGMENTS.length) return;
   if (!rememberOn()){
     cacheNote(t('load.noStore', parseS));
@@ -1893,7 +2007,6 @@ function busy(on, txt){
 
 // ---------- Filtry + statystyki ----------
 const visibleModes = new Set(MODES.map(m => m.k));
-function dayStart(ms){ const d = new Date(ms); d.setHours(0,0,0,0); return d.getTime(); }
 function fmtDate(ms){ const d=new Date(ms);
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function fmtKm(m){
