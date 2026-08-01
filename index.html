@@ -213,6 +213,11 @@
   </label>
   <button id="demo" data-i18n="demo.btn"></button>
 
+  <details id="help">
+    <summary data-i18n="help.summary"></summary>
+    <div class="metaLine" style="margin-top:8px" data-i18n-html="help.body"></div>
+  </details>
+
   <label class="modeRow" id="rememberRow">
     <input type="checkbox" id="remember">
     <span class="mName" data-i18n="remember.label"></span>
@@ -353,10 +358,6 @@
     </div>
   </div>
 
-  <details>
-    <summary data-i18n="help.summary"></summary>
-    <div class="metaLine" style="margin-top:8px" data-i18n-html="help.body"></div>
-  </details>
 </div>
 
 <div id="quickBar" style="display:none">
@@ -396,7 +397,7 @@ const I18N = {
     'app.sub': 'Mapa Twoich tras w stylu Stravy — dane zostają w przeglądarce.',
     'panel.open': 'Ustawienia', 'panel.close': 'Zamknij',
     'drop.main': 'Przeciągnij tutaj lub <b>kliknij</b>',
-    'drop.sub': 'plik(i) .json lub .zip z Google Takeout',
+    'drop.sub': 'plik .json z telefonu albo .zip z Takeout',
     'demo.btn': 'Nie masz pliku? Zobacz przykład',
     'demo.note': 'Dane przykładowe — wymyślone, nie są niczyją prawdziwą historią. Wczytaj własny plik, żeby zobaczyć swoje trasy.',
     'demo.building': 'Buduję przykład…',
@@ -463,7 +464,7 @@ const I18N = {
     'meta.range': 'Zakres danych: ', 'meta.seg': 'Odcinki ', 'meta.pts': 'Punkty ',
     'meta.files': 'Pliki ', 'meta.fmt': 'Formaty: ',
     'help.summary': 'Skąd wziąć dane?',
-    'help.body': '<b>Z telefonu (nowy):</b> Ustawienia → Lokalizacja → Oś czasu → Eksportuj dane osi czasu → <i>Timeline.json</i> (najlepsze źródło).<br><br><b>Google Takeout (starszy):</b> takeout.google.com → „Historia lokalizacji". Możesz wrzucić cały <i>.zip</i> albo pojedyncze pliki JSON.<br><br>Aplikacja sama wykryje format. Dane nigdzie nie są wysyłane — całe przetwarzanie dzieje się lokalnie w przeglądarce.',
+    'help.body': '<b>Android:</b> Ustawienia telefonu → Lokalizacja → Usługi lokalizacji → Oś czasu → <i>Eksportuj dane osi czasu</i> → Kontynuuj → wybierz miejsce zapisu.<br><br><b>iPhone:</b> aplikacja Mapy Google → Twój awatar → Ustawienia → Lokalizacja i prywatność → <i>Eksportuj dane osi czasu</i> → Zapisz w plikach. Plik nazywa się <i>location-history.json</i>.<br><br><b>Starsze archiwum Takeout:</b> jeśli je masz, też zadziała — wrzuć cały <i>.zip</i> albo pliki <i>Records.json</i> / <i>Semantic Location History</i>. Google przeniósł jednak oś czasu na telefon, więc w nowych eksportach Takeout zwykle jej już nie ma.<br><br>Plik może ważyć kilkadziesiąt megabajtów — to normalne. Aplikacja sama rozpozna format. Jeśli dostaniesz plik <i>.csv</i>, ta strona go nie odczyta: obsługuje wyłącznie JSON.<br><br>Nazwy pozycji w menu Google bywają zmieniane — szukaj czegoś w rodzaju „Eksportuj dane osi czasu”.',
     'q.dist': 'łączny dystans', 'q.distRange': 'łączny dystans (wybrany okres)',
     'q.distGeom': 'dystans z geometrii tras',
     'q.trips': 'podróże', 'q.days': 'aktywne dni', 'q.longest': 'najdłuższa podróż',
@@ -490,7 +491,7 @@ const I18N = {
     'app.sub': 'A Strava-style map of your trips — your data stays in the browser.',
     'panel.open': 'Settings', 'panel.close': 'Close',
     'drop.main': 'Drag files here or <b>click</b>',
-    'drop.sub': '.json or .zip file(s) from Google Takeout',
+    'drop.sub': 'a .json from your phone, or a .zip from Takeout',
     'demo.btn': 'No file yet? See an example',
     'demo.note': 'Example data — made up, not anyone’s real history. Load your own file to see your trips.',
     'demo.building': 'Building the example…',
@@ -557,7 +558,7 @@ const I18N = {
     'meta.range': 'Data range: ', 'meta.seg': 'Segments ', 'meta.pts': 'Points ',
     'meta.files': 'Files ', 'meta.fmt': 'Formats: ',
     'help.summary': 'Where do I get the data?',
-    'help.body': '<b>From your phone (new):</b> Settings → Location → Location History (Timeline) → Export Timeline data → <i>Timeline.json</i> (the best source).<br><br><b>Google Takeout (older):</b> takeout.google.com → “Location History”. You can drop in the whole <i>.zip</i> or individual JSON files.<br><br>The app detects the format on its own. Nothing is uploaded — all processing happens locally in your browser.',
+    'help.body': '<b>Android:</b> phone Settings → Location → Location services → Timeline → <i>Export Timeline data</i> → Continue → pick where to save.<br><br><b>iPhone:</b> Google Maps app → your profile picture → Settings → Location & Privacy → <i>Export Timeline data</i> → Save to Files. The file is called <i>location-history.json</i>.<br><br><b>Older Takeout archive:</b> if you still have one, it works too — drop in the whole <i>.zip</i> or the <i>Records.json</i> / <i>Semantic Location History</i> files. Note that Google moved Timeline onto the phone, so recent Takeout exports usually no longer include it.<br><br>The file can be tens of megabytes — that is normal. The app detects the format on its own. If you get a <i>.csv</i> file, this page cannot read it: JSON only.<br><br>Google renames these menu entries from time to time — look for something like “Export Timeline data”.',
     'q.dist': 'total distance', 'q.distRange': 'total distance (selected period)',
     'q.distGeom': 'distance from trace geometry',
     'q.trips': 'trips', 'q.days': 'active days', 'q.longest': 'longest trip',
