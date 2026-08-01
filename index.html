@@ -246,6 +246,12 @@
     </div>
     <div class="metaLine" id="styleHint"></div>
 
+    <label class="modeRow" id="dupRow">
+      <input type="checkbox" id="hideDup" checked>
+      <span class="mName" data-i18n="dup.label"></span>
+    </label>
+    <div class="metaLine" id="dupNote"></div>
+
     <div class="row"><label data-i18n="style.color"></label>
       <input type="color" id="color" value="#ff7a1a" /></div>
 
@@ -429,6 +435,10 @@ const I18N = {
     'style.linesHint': 'Każda trasa tą samą grubością, bez świecenia — liczy się zasięg, nie częstotliwość.',
     'style.color': 'Kolor śladu', 'style.bright': 'Jasność linii', 'style.alpha': 'Krycie linii',
     'style.weight': 'Grubość',
+    'dup.label': 'Ukryj powielone proste odcinki',
+    'dup.expl': 'Google zapisuje część podróży dodatkowo jako sam odcinek start–koniec, który rysuje się jako prosta przez pół mapy. Ukrywane są wyłącznie te, których dokładny ślad i tak jest na mapie.',
+    'dup.found': 'Ukryto {0} odcinków ({1}).',
+    'dup.none': 'Nie znaleziono powtórzeń w tych danych.',
     'sec.modes': 'Środki transportu', 'modes.byMode': 'koloruj wg trybu',
     'sec.dates': 'Zakres dat', 'dates.from': 'Od', 'dates.to': 'Do', 'dates.all': 'Cały zakres',
     'sec.timelapse': 'Timelapse', 'tl.dur': 'Czas animacji',
@@ -523,6 +533,10 @@ const I18N = {
     'style.linesHint': 'Every trip the same width, no glow — this shows reach, not frequency.',
     'style.color': 'Trace colour', 'style.bright': 'Line brightness', 'style.alpha': 'Line opacity',
     'style.weight': 'Width',
+    'dup.label': 'Hide duplicated straight segments',
+    'dup.expl': 'Google also stores some trips as a bare start-to-end segment, which draws as a straight line across the map. Only those whose detailed track is already on the map get hidden.',
+    'dup.found': 'Hidden: {0} segments ({1}).',
+    'dup.none': 'No duplicates found in this data.',
     'sec.modes': 'Modes of transport', 'modes.byMode': 'colour by mode',
     'sec.dates': 'Date range', 'dates.from': 'From', 'dates.to': 'To', 'dates.all': 'Full range',
     'sec.timelapse': 'Timelapse', 'tl.dur': 'Animation length',
@@ -668,6 +682,7 @@ L.HeatLines = L.Layer.extend({
     this._segments = segments || [];
     this._filter = null;          // {from, to, modes:Set}
     this._colorByMode = false;
+    this._hideDup = true;         // zgodnie z domyślnym stanem pola wyboru w panelu
     L.setOptions(this, options);
     this._updateStyles();
   },
@@ -712,6 +727,7 @@ L.HeatLines = L.Layer.extend({
     return this;
   },
   setColorByMode(b){ this._colorByMode = b; if (this._map) this._redraw(); return this; },
+  setHideDup(b){ this._hideDup = b; if (this._map) this._redraw(); return this; },
   _updateStyles(){
     this._single = hexToRgba(this.options.color, this.options.opacity);
     this._modeStyle = {};
@@ -888,6 +904,7 @@ L.HeatLines = L.Layer.extend({
     const stop = count > 0 ? Math.min(segs.length, i + count) : segs.length;
     for (; i < stop; i++){
       const seg = segs[i];
+      if (this._hideDup && seg.dup) continue;      // prosta powielająca narysowany obok gęsty ślad
       if (delta && !(Number.isFinite(seg.t) && seg.t > after)) continue;   // reszta już jest na kanwie
       if (F){
         if (Number.isFinite(seg.t) && (seg.t < F.from || seg.t > F.to)) continue;
@@ -1762,6 +1779,43 @@ function syncPanelHeight(){
   document.getElementById('panel').style.maxHeight = Math.max(160, window.innerHeight - 24 - reserve) + 'px';
 }
 
+// Google potrafi zapisać tę samą podróż dwa razy: raz jako gęsty ślad z nawigacji,
+// a drugi raz jako goły odcinek start–koniec. Ten drugi rysuje się jako prosta cięciwa
+// przez pół mapy, mimo że dokładna trasa jest już narysowana obok. Oznaczamy takie duplikaty.
+//
+// Warunek jest celowo wąski, bo większość krótkich odcinków to JEDYNY zapis danej podróży
+// (Google rzadko próbkuje jazdy bez nawigacji) i wycięcie ich skasowałoby realne kilometry:
+// odcinek ma najwyżej 3 punkty, mierzy co najmniej 2 km, jego czas w co najmniej 70% pokrywa
+// gęstszy ślad, a OBA jego końce leżą nie dalej niż 3 km od tamtego śladu. Podróż nagrana
+// bez nawigacji nie ma gęstego odpowiednika, więc nie spełni tego warunku i zostaje.
+let DUP_COUNT = 0, DUP_KM = 0;
+function markDuplicates(){
+  DUP_COUNT = 0; DUP_KM = 0;
+  for (const s of SEGMENTS) s.dup = false;
+  const geste = SEGMENTS.filter(s => s.c.length/2 >= 8 && Number.isFinite(s.t)).sort((a,b) => a.t - b.t);
+  if (!geste.length) return;
+  const startT = geste.map(s => s.t);
+  const lower = t => { let lo=0, hi=startT.length;
+    while (lo<hi){ const m=(lo+hi)>>1; if (startT[m] < t) lo=m+1; else hi=m; } return lo; };
+  const blisko = (lat, lng, g) => {
+    for (let i=0;i<g.c.length;i+=2) if (haversine(lat, lng, g.c[i], g.c[i+1]) < 3) return true;
+    return false;
+  };
+  for (const s of SEGMENTS){
+    if (s.c.length/2 > 3 || s.gd < 2 || !Number.isFinite(s.t) || !Number.isFinite(s.te)) continue;
+    const dur = Math.max(1, s.te - s.t);
+    for (let i = Math.max(0, lower(s.t - DAY)); i < geste.length; i++){
+      const g = geste[i];
+      if (g.t > s.te) break;                       // dalsze zaczynają się jeszcze później
+      if (g.te < s.t || g === s) continue;
+      if ((Math.min(g.te, s.te) - Math.max(g.t, s.t)) / dur < 0.7) continue;
+      if (blisko(s.c[0], s.c[1], g) && blisko(s.c[s.c.length-2], s.c[s.c.length-1], g)){
+        s.dup = true; DUP_COUNT++; DUP_KM += s.gd; break;
+      }
+    }
+  }
+}
+
 // fromCache — tryby, otoczki i zakres dat są już policzone i wczytane razem z danymi
 function finalizeLoad(fromCache){
   if (!fromCache){
@@ -1780,6 +1834,8 @@ function finalizeLoad(fromCache){
     else { DATA_MIN = DATA_MAX = null; }
   }
 
+  markDuplicates();          // tanie (kilka ms), więc liczone też przy wczytaniu z pamięci
+  updateDupNote();
   heat.setSegments(SEGMENTS);
   buildModeRows();
   initDateSliders();
@@ -1809,6 +1865,7 @@ function clearAll(){
   SEGMENTS = []; ACTIVITIES = []; VISITS = []; PATHREFS = [];
   TOTAL_PTS = 0; FILES = 0; FORMATS.clear(); DATA_MIN = DATA_MAX = null;
   DEMO = false;
+  DUP_COUNT = 0; DUP_KM = 0; updateDupNote();
   cacheNote('');
   heat.setSegments(SEGMENTS).setFilter(null);
   measureShown = null; measureLayer.clearLayers(); poiLayer.clearLayers();
@@ -2527,6 +2584,7 @@ $('opacity').addEventListener('input', e => { const v = +e.target.value; STYLE_M
 $('weight').addEventListener('input',  e => { const v = +e.target.value; STYLE_MODES[styleMode].weight = v;
                                               $('wVal').textContent = v.toFixed(1);  heat.setStyle({ weight:v }); });
 $('colorByMode').addEventListener('change', e => heat.setColorByMode(e.target.checked));
+$('hideDup').addEventListener('change', e => heat.setHideDup(e.target.checked));
 $('basemap').addEventListener('change', e => { setBasemap(e.target.value); STYLE_MODES[styleMode].basemap = e.target.value; });
 applyStyleMode('heat', true);
 $('showCountries').addEventListener('change', e => {
@@ -2619,6 +2677,14 @@ $('monthChart').addEventListener('click', (e) => {
 // Teksty statyczne siedzą w atrybutach data-i18n, więc przełączenie języka nie wymaga
 // przeładowania strony — a wszystko, co narysowane (wykresy, lista krajów, statystyki)
 // trzeba przerysować, bo etykiety powstały w poprzednim języku.
+function updateDupNote(){
+  const el = document.getElementById('dupNote'); if (!el) return;
+  el.textContent = SEGMENTS.length
+    ? (DUP_COUNT ? t('dup.found', num(DUP_COUNT), fmtKm(DUP_KM*1000)) + ' ' + t('dup.expl')
+                 : t('dup.none'))
+    : '';
+  document.getElementById('dupRow').style.display = DUP_COUNT ? '' : 'none';
+}
 function applyI18n(){
   document.documentElement.lang = LANG;
   for (const el of document.querySelectorAll('[data-i18n]'))
@@ -2630,6 +2696,7 @@ function applyI18n(){
   $('panelToggle').textContent = document.body.classList.contains('panelHidden')
     ? t('panel.open') : t('panel.close');
   if (!TL){ $('tlPlay').textContent = t('tl.play'); $('tlLbl').textContent = t('tl.hint'); }
+  updateDupNote();
   applyStyleMode(styleMode, true);
 }
 function setLang(kod){
