@@ -7,6 +7,8 @@ Turn your Google location history into a Strava-style heatmap of everywhere you 
 **Your data never leaves your browser.** There is no server, no account, no sign-up and no
 analytics — the file you pick is read and drawn locally, on your own machine.
 
+[![Licence: AGPL v3](https://img.shields.io/badge/licence-AGPL--3.0-ff7a1a)](LICENSE)
+
 ![Heatmap of a city and the routes leading out of it](screenshot.jpg)
 
 *The screenshot uses the built-in example data, not anyone's real history.*
@@ -113,3 +115,22 @@ archive into a folder full of monthly files.
 - Google sometimes stores one journey twice: a detailed navigated track *and* a bare
   start-to-end segment that draws as a straight line across the map. Those duplicates are
   detected and hidden by default; trips recorded without navigation are left alone.
+
+## Licence
+
+[GNU Affero General Public License v3.0](LICENSE) — free to use, study, modify and share.
+
+The one condition worth knowing: **if you run a modified version as a website, you have to
+publish your source code under the same licence.** Ordinary use of this page puts no obligation
+on you whatsoever — it applies to anyone who takes the code, changes it and serves it to others.
+
+Copyright stays with the author, so a separate commercial licence can be arranged if the AGPL
+does not suit your case.
+
+### Third-party components
+
+[Leaflet](https://leafletjs.com/) (BSD-2-Clause) and [JSZip](https://stuk.github.io/jszip/)
+(MIT) are loaded from a CDN. Country borders come from
+[Natural Earth](https://www.naturalearthdata.com/) (public domain). Map tiles are served by
+[CARTO](https://carto.com/basemaps/) and [Esri](https://www.esri.com/), each under its own terms
+— if you host this for a large audience, check their usage policies first.
