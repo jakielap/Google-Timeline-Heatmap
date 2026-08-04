@@ -158,6 +158,10 @@
 
   /* Lista krajów wysuwana z dolnego paska. Osobny element, a nie kolejna kopia listy z panelu —
      zawartość rysuje ta sama funkcja, tylko do innego pojemnika. */
+  /* Bez tego atrybut hidden nic nie robi: własna reguła z display:flex bije wbudowaną
+     regułę przeglądarki dla [hidden], więc wysuwka wisiała w rogu ekranu i nie dawała
+     się zamknąć. Selektor z atrybutem jest bardziej szczegółowy, więc wygrywa. */
+  #ccPop[hidden] { display:none; }
   #ccPop {
     position:absolute; z-index:1001; width:270px; max-height:min(52vh, 420px);
     display:flex; flex-direction:column;
