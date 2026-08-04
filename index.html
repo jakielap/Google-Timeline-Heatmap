@@ -1157,7 +1157,10 @@ function ccPopUstaw(){
 function styleCountry(feat){
   const visited = VISITED_CC.has(ccKey(feat));
   return visited
-    ? { color:'#ff9b3d', weight:1.2, opacity:0.95, fillColor:'#ff7a1a', fillOpacity:0.28 }   // wypełnienie odwiedzonego kraju
+    // Cyjan, a nie pomarańcz: podświetlenie leży pod śladem, a ślad jest ciepły (pomarańczowy
+    // w heatmapie, czerwony w liniach). Wypełnienie w tym samym kolorze co trasy zjadało je
+    // wzrokowo. Chłodny odcień jest dopełnieniem obu i nie należy do palety środków transportu.
+    ? { color:'#67e8f9', weight:1.1, opacity:0.85, fillColor:'#22d3ee', fillOpacity:0.17 }
     : { color:'#2a2f3a', weight:0.4, opacity:0.45, fillColor:'#080a0e', fillOpacity:0.6 };
 }
 function renderCountryLayer(){
